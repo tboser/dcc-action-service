@@ -1,0 +1,1 @@
+5 0 * * * root cd ~/dcc-action-service/luigi_task_executor && PYTHONPATH='' luigi --module SequenceQCTask SequenceQCCoordinator --es-index-host localhost --es-index-port 9200 --redwood-client-path ../ucsc-storage-client --redwood-host storage2.ucsc-cgl.org --tmp-dir /tmp --data-dir /mnt/SequenceQCTask --max-jobs 1 >>test_log.txt
