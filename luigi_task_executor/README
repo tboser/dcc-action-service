@@ -8,4 +8,6 @@ If there isn't a luigi server up and running, use the command 'luigid' to start 
 
 Once the index and luigi server are running, you can either run the command manually (see below) or set up the crontab with the command 'crontab crontab2.txt'.
 
+WARNING: If you are testing on a production box, don't overwrite other crontabs! When this ceases to perplex, this warning will be removved.
+
 (Note: to run SequenceQCTask manually, just copy the command out of crontab2.txt)
