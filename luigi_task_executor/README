@@ -1,0 +1,11 @@
+# Action Service
+
+This guide assumes that you have used git clone to create a dcc-action-service in the ~ directory. If this isn't true, adjust the directory paths in the crontab2.txt file.
+
+These instructions are fairly limited in scope, but it is recommended to test on a box that already has a metadata index. 
+
+If there isn't a luigi server up and running, use the command 'luigid' to start one up, either in a different terminal or in the background of your current screen.
+
+Once the index and luigi server are running, you can either run the command manually (see below) or set up the crontab with the command 'crontab crontab2.txt'.
+
+(Note: to run SequenceQCTask manually, just copy the command out of crontab2.txt)
