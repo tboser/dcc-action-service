@@ -29,7 +29,6 @@ class ConsonanceTask(luigi.Task):
     workflow_type = luigi.Parameter(default="rna_seq_quantification")
     image_descriptor = luigi.Parameter("must be defined")
  
-    filenames = luigi.ListParameter(default=["must input sample files"])
     starfilename = luigi.Parameter(default="redwood://storage.ucsc-cgl.org/d0117ff1-cf53-43a0-aaab-cb15809fbb49/ca79c317-e410-591f-b802-3a0be6b658b7/starIndex_hg38_no_alt.tar.gz")
     rsemfilename = luigi.Parameter(default="redwood://storage.ucsc-cgl.org/d0117ff1-cf53-43a0-aaab-cb15809fbb49/b850460d-23c0-57a4-9d4b-af60726476a5/rsem_ref_hg38_no_alt.tar.gz")
     kallistofilename = luigi.Parameter(default="redwood://storage.ucsc-cgl.org/d0117ff1-cf53-43a0-aaab-cb15809fbb49/c92d30f3-2731-56b1-b8e4-41d09b1bb2dc/kallisto_hg38.idx")
@@ -42,9 +41,21 @@ class ConsonanceTask(luigi.Task):
     cores = luigi.Parameter(default=36)
     bamqc = luigi.Parameter(default="true")
 
-    file_uuids = luigi.ListParameter(default=["uuid"])
-    bundle_uuids = luigi.ListParameter(default=["bundle_uuid"])
-    parent_uuids = luigi.ListParameter(default=["parent_uuid"])
+    paired_filenames = luigi.ListParameter(default=["must input sample files"])
+    paired_file_uuids = luigi.ListParameter(default=["uuid"])
+    paired_bundle_uuids = luigi.ListParameter(default=["bundle_uuid"])
+    paired_parent_uuids = luigi.ListParameter(default=["parent_uuid"])
+
+    single_filenames = luigi.ListParameter(default=["must input sample files"])
+    single_file_uuids = luigi.ListParameter(default=["uuid"])
+    single_bundle_uuids = luigi.ListParameter(default=["bundle_uuid"])
+    single_parent_uuids = luigi.ListParameter(default=["parent_uuid"])
+
+    tar_filenames = luigi.ListParameter(default=["must input sample files"])
+    tar_file_uuids = luigi.ListParameter(default=["uuid"])
+    tar_bundle_uuids = luigi.ListParameter(default=["bundle_uuid"])
+    tar_parent_uuids = luigi.ListParameter(default=["parent_uuid"])
+
     tmp_dir = luigi.Parameter(default='/datastore')
     workflow_version = luigi.Parameter(default='3.0.1')
 
@@ -69,29 +80,66 @@ class ConsonanceTask(luigi.Task):
         # TODO: this is tied to the requirements of the tool being targeted
         json_str = '''
 {
-"samples": [
+'''
+        if len(self.paired_filenames) > 0:
+            json_str += '''
+"sample-paired": [
+        '''
+            i = 0
+            while i<len(self.paired_filenames):
+                # append file information
+                json_str += '''
+            {
+              "class": "File",
+              "path": "redwood://%s/%s/%s/%s"
+            }''' % (self.redwood_host, self.paired_bundle_uuids[i], self.paired_file_uuids[i], self.paired_filenames[i])
+                if i < len(self.paired_filenames) - 1:
+                   json_str += ","
+                i += 1
+            json_str += '''
+  ],
+            '''
+
+        if len(self.single_filenames) > 0:
+            json_str += '''
+"sample-single": [
+        '''
+            i = 0
+            while i<len(self.single_filenames):
+                # append file information
+                json_str += '''
+            {
+               "class": "File",
+               "path": "redwood://%s/%s/%s/%s"
+            }''' % (self.redwood_host, self.single_bundle_uuids[i], self.single_file_uuids[i], self.single_filenames[i])
+                if i < len(self.single_filenames) - 1:
+                    json_str += ","
+                i += 1
+            json_str += '''
+  ],
+            '''
+
+        # '"sample-tar": []' always required
+        # because of the way the CWL tar input is defined
+        json_str += '''
+"sample-tar": [
         '''
         i = 0
-        while i<len(self.filenames):
+        while i<len(self.tar_filenames):
             # append file information
             json_str += '''
         {
           "class": "File",
           "path": "redwood://%s/%s/%s/%s"
-        }''' % (self.redwood_host, self.bundle_uuids[i], self.file_uuids[i], self.filenames[i])
-            #if there are more than 1 file and an even number of files so far, i.e.
-            #we are getting an odd number file then put a space after the previous pair
-            #since each file should be part of a Read pair separated by a comma and each pair
-            #should be separated by a space
-#            if (len(self.filenames) > 1) and ((i % 2) != 0):
-#                json_str += " "
-#            elif 
-            if i < len(self.filenames) - 1:
+        }''' % (self.redwood_host, self.tar_bundle_uuids[i], self.tar_file_uuids[i], self.tar_filenames[i])
+            if i < len(self.tar_filenames) - 1:
                 json_str += ","
             i += 1
         json_str += '''
   ],
             '''
+
+
 
         json_str += '''
 "rsem":
@@ -153,16 +201,47 @@ class ConsonanceTask(luigi.Task):
         json_str += '''
 "output_files": [
         '''
-        i = 0
-        while i<len(self.filenames):
+        #for single end read inputs use the base name of one of the input files
+        #as the output name
+        if len(self.single_filenames) > 0:
+             new_filename = self.single_filenames[i].split('/')[-1].split('.')[0] + '.gz'
+             json_str += '''
+    {
+      "class": "File",
+      "path": "/tmp/%s"
+    }''' % (new_filename)
+ 
+
+        #for single end read inputs use the base name of one of the input files
+        #as the output name
+        if len(self.paired_filenames) > 0:
+            #put a comma after the preceeding files
+            if len(self.single_filenames) > 0:
+                json_str += "," 
+            new_filename = self.paired_filenames[i].split('/')[-1].split('.')[0] + '.gz'
             json_str += '''
     {
       "class": "File",
-      "path": "/tmp/%s.gz"
-    }''' % (self.filenames[i])
-            if i < len(self.filenames) - 1:
-                json_str += ","
-            i += 1
+      "path": "/tmp/%s"
+    }''' % (new_filename)
+ 
+
+        #each input tar file is a sample so each will have an output file 
+        if len(self.tar_filenames) > 0:
+            #put a comma after the preceeding files
+            if len(self.single_filenames) > 0 or len(self.paired_filenames) > 0:
+                json_str += "," 
+            i = 0
+            while i<len(self.tar_filenames):
+                json_str += '''
+        {
+          "class": "File",
+          "path": "/tmp/%s.gz"
+        }''' % (self.tar_filenames[i])
+                if i < len(self.tar_filenames) - 1:
+                    json_str += ","
+                i += 1
+
         json_str += '''
   ]'''
 
@@ -173,42 +252,104 @@ class ConsonanceTask(luigi.Task):
 
 "wiggle_files": [
         '''
-            i = 0
-            while i<len(self.filenames):
-                # append file information
-                new_filename = self.filenames[i].split('/')[-1].split('.')[0] + '.wiggle.bg'
+            #for single end read inputs use the base name of one of the input files
+            #as the output name
+            if len(self.single_filenames) > 0:
+                new_filename = self.single_filenames[0].split('/')[-1].split('.')[0] + '.wiggle.bg'
                 json_str += '''
     {
       "class": "File",
       "path": "/tmp/%s"
     }''' % (new_filename)
-                if i < len(self.filenames) - 1:
-                    json_str += ","
-                i += 1
+ 
+
+            #for single end read inputs use the base name of one of the input files
+            #as the output name
+            if len(self.paired_filenames) > 0:
+                #put a comma after the preceeding files
+                if len(self.single_filenames) > 0:
+                    json_str += "," 
+                new_filename = self.paired_filenames[0].split('/')[-1].split('.')[0] + '.wiggle.bg'
+                json_str += '''
+    {
+      "class": "File",
+      "path": "/tmp/%s"
+    }''' % (new_filename)
+ 
+
+            #each input tar file is a sample so each will have a wiggle output file 
+            if len(self.tar_filenames) > 0:
+                #put a comma after the preceeding files
+                if len(self.single_filenames) > 0 or len(self.paired_filenames) > 0:
+                    json_str += "," 
+                i = 0
+                while i<len(self.tar_filenames):
+                    new_filename = self.tar_filenames[i].split('/')[-1].split('.')[0] + '.wiggle.bg'
+                    json_str += '''
+        {
+          "class": "File",
+          "path": "/tmp/%s"
+        }''' % (new_filename)
+                    if i < len(self.tar_filenames) - 1:
+                        json_str += ","
+                    i += 1
+
+
             json_str += '''
   ]'''
 
-
-        # if the user wants to save the BAM output file
+        # if the user wants to save the wiggle output file
         if self.save_bam == 'true':
             json_str += ''',
 
 "bam_files": [
-            '''
-            i = 0
-            while i<len(self.filenames):
-                # append file information
-                new_filename = self.filenames[i].split('/')[-1].split('.')[0] + '.sorted.bam'
+        '''
+            #for single end read inputs use the base name of one of the input files
+            #as the output name
+            if len(self.single_filenames) > 0:
+                new_filename = self.single_filenames[0].split('/')[-1].split('.')[0] + '.sorted.bam'
                 json_str += '''
     {
       "class": "File",
       "path": "/tmp/%s"
     }''' % (new_filename)
-                if i < len(self.filenames) - 1:
-                    json_str += ","
-                i += 1
+ 
+
+            #for single end read inputs use the base name of one of the input files
+            #as the output name
+            if len(self.paired_filenames) > 0:
+                #put a comma after the preceeding files
+                if len(self.single_filenames) > 0:
+                    json_str += "," 
+                new_filename = self.paired_filenames[0].split('/')[-1].split('.')[0] + '.sorted.bam'
+                json_str += '''
+    {
+      "class": "File",
+      "path": "/tmp/%s"
+    }''' % (new_filename)
+ 
+
+            #each input tar file is a sample so each will have a wiggle output file 
+            if len(self.tar_filenames) > 0:
+                #put a comma after the preceeding files
+                if len(self.single_filenames) > 0 or len(self.paired_filenames) > 0:
+                    json_str += "," 
+                i = 0
+                while i<len(self.tar_filenames):
+                    new_filename = self.tar_filenames[i].split('/')[-1].split('.')[0] + '.sorted.bam'
+                    json_str += '''
+        {
+          "class": "File",
+          "path": "/tmp/%s"
+        }''' % (new_filename)
+                    if i < len(self.tar_filenames) - 1:
+                        json_str += ","
+                    i += 1
+
+
             json_str += '''
   ]'''
+
 
         json_str += '''
 }
@@ -221,6 +362,7 @@ class ConsonanceTask(luigi.Task):
         # create a json for dockstoreRunningDockstoreTool, embed the RNA-Seq JSON as a param
 # below used to be a list of parent UUIDs; which is correct????
 #            "parent_uuids": "[%s]",
+#FIX THIS BELOW WHERE paired_parent_uuids IS USED !!!!!!!!!!!!!!!!!!
  
         p = self.save_json().open('w')
         print >>p, '''{
@@ -238,7 +380,7 @@ class ConsonanceTask(luigi.Task):
             "vm_instance_cores": 36,
             "vm_instance_mem_gb": 60,
             "output_metadata_json": "/tmp/final_metadata.json"
-        }''' % (base64_json_str, self.target_tool, self.target_tool_url, self.redwood_token, self.redwood_host, ','.join(map("{0}".format, self.parent_uuids)), self.workflow_type, self.tmp_dir )
+        }''' % (base64_json_str, self.target_tool, self.target_tool_url, self.redwood_token, self.redwood_host, ','.join(map("{0}".format, self.paired_parent_uuids)), self.workflow_type, self.tmp_dir )
         p.close()
         # execute consonance run, parse the job UUID
         print "** SUBMITTING TO CONSONANCE **"
@@ -285,7 +427,12 @@ class ConsonanceTask(luigi.Task):
         #TODO??? should this be based on all the inputs
         #including the path to star, kallisto, rsem and
         #save BAM, etc.???
-        task_uuid = uuid5(uuid.NAMESPACE_DNS, ''.join(map("'{0}'".format, self.filenames)) + self.target_tool + self.target_tool_url + self.redwood_token + self.redwood_host + ''.join(map("'{0}'".format, self.parent_uuids)) + self.workflow_type + self.save_bam + self.save_wiggle + self.disable_cutadapt + self.workflow_version)
+        task_uuid = uuid5(uuid.NAMESPACE_DNS,  
+                 self.target_tool + self.target_tool_url + self.redwood_token + self.redwood_host 
+                 + ''.join(map("{0}".format, self.single_filenames)) + ''.join(map("{0}".format, self.single_parent_uuids))  
+                 + ''.join(map("{0}".format, self.paired_filenames)) + ''.join(map("{0}".format, self.paired_parent_uuids))  
+                 + ''.join(map("{0}".format, self.tar_filenames)) + ''.join(map("{0}".format, self.tar_parent_uuids))  
+                 + self.workflow_type + self.save_bam + self.save_wiggle + self.disable_cutadapt + self.workflow_version)
 #        print("task uuid:%s",str(task_uuid))
         return task_uuid
 
@@ -364,27 +511,62 @@ class RNASeqCoordinator(luigi.Task):
                                    re.match("^RNA-Seq$", specimen["submitter_experimental_design"]))):
                             #print analysis
                             print "HIT!!!! "+analysis["analysis_type"]+" "+str(hit["_source"]["flags"]["normal_rna_seq_quantification"])+" "+str(hit["_source"]["flags"]["tumor_rna_seq_quantification"])+" "+specimen["submitter_specimen_type"]+" "+str(specimen["submitter_experimental_design"])
-                            files = []
-                            file_uuids = []
-                            bundle_uuids = []
-                            parent_uuids = {}
+                            paired_files = []
+                            paired_file_uuids = []
+                            paired_bundle_uuids = []
+                            paired_parent_uuids = {}
+
+                            single_files = []
+                            single_file_uuids = []
+                            single_bundle_uuids = []
+                            single_parent_uuids = {}
+
+                            tar_files = []
+                            tar_file_uuids = []
+                            tar_bundle_uuids = []
+                            tar_parent_uuids = {}
+
+
                             for file in analysis["workflow_outputs"]:
                                 print "file type:"+file["file_type"]
                                 print "file name:"+file["file_path"]
                                 if (
                                     file["file_type"] == "fastq" or
                                     file["file_type"] == "fastq.gz"):
-
-                                    # this will need to be an array
+                                 
+                                   #TODO add single read file support!
+                                   #if single read:
+                                    #print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
+                                    #single_files.append(file["file_path"])
+                                    #single_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
+                                    #single_bundle_uuids.append(analysis["bundle_uuid"])
+                                    #single_parent_uuids[sample["sample_uuid"]] = True
+                                   #else if paired read: 
                                     print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
-                                    files.append(file["file_path"])
-                                    file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
-                                    bundle_uuids.append(analysis["bundle_uuid"])
-                                    parent_uuids[sample["sample_uuid"]] = True
-                            print "will run report for %s" % files
-                            print "total of %d files in this job" % len(files)
-                            if len(listOfJobs) < int(self.max_jobs) and len(files) > 0:
-                                 listOfJobs.append(ConsonanceTask(redwood_host=self.redwood_host, redwood_token=self.redwood_token, image_descriptor=self.image_descriptor, dockstore_tool_running_dockstore_tool=self.dockstore_tool_running_dockstore_tool, filenames=files, file_uuids = file_uuids, bundle_uuids = bundle_uuids, parent_uuids = parent_uuids.keys(), tmp_dir=self.tmp_dir))
+                                    paired_files.append(file["file_path"])
+                                    paired_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
+                                    paired_bundle_uuids.append(analysis["bundle_uuid"])
+                                    paired_parent_uuids[sample["sample_uuid"]] = True
+                                elif ( 
+                                    file["file_type"] == "fastq.tar"):
+
+                                    print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
+                                    tar_files.append(file["file_path"])
+                                    tar_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
+                                    tar_bundle_uuids.append(analysis["bundle_uuid"])
+                                    tar_parent_uuids[sample["sample_uuid"]] = True
+
+                            if len(listOfJobs) < int(self.max_jobs) and (len(paired_files) + len(tar_files) + len(single_files)) > 0:
+
+                                 print "will run report for %s and %s and %s" % (paired_files, tar_files, single_files)
+                                 print "total of %d files in this job" % (len(paired_files) + len(tar_files) + len(single_files))
+ 
+                                 listOfJobs.append(ConsonanceTask(redwood_host=self.redwood_host, redwood_token=self.redwood_token, \
+                                 image_descriptor=self.image_descriptor, dockstore_tool_running_dockstore_tool=self.dockstore_tool_running_dockstore_tool, \
+                                 single_filenames=single_files, single_file_uuids = single_file_uuids, single_bundle_uuids = single_bundle_uuids, single_parent_uuids = single_parent_uuids.keys(), \
+                                 paired_filenames=paired_files, paired_file_uuids = paired_file_uuids, paired_bundle_uuids = paired_bundle_uuids, paired_parent_uuids = paired_parent_uuids.keys(), \
+                                 tar_filenames=tar_files, tar_file_uuids = tar_file_uuids, tar_bundle_uuids = tar_bundle_uuids, tar_parent_uuids = tar_parent_uuids.keys(), \
+                                 tmp_dir=self.tmp_dir))
                             print "total of %d jobs; max jobs allowed is %d" % (len(listOfJobs), int(self.max_jobs))
         # these jobs are yielded to
         print "\n\n** COORDINATOR REQUIRES DONE!!! **"
