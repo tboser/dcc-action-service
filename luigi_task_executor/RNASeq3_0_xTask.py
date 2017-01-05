@@ -44,17 +44,16 @@ class ConsonanceTask(luigi.Task):
     paired_filenames = luigi.ListParameter(default=["must input sample files"])
     paired_file_uuids = luigi.ListParameter(default=["uuid"])
     paired_bundle_uuids = luigi.ListParameter(default=["bundle_uuid"])
-    paired_parent_uuids = luigi.ListParameter(default=["parent_uuid"])
 
     single_filenames = luigi.ListParameter(default=["must input sample files"])
     single_file_uuids = luigi.ListParameter(default=["uuid"])
     single_bundle_uuids = luigi.ListParameter(default=["bundle_uuid"])
-    single_parent_uuids = luigi.ListParameter(default=["parent_uuid"])
 
     tar_filenames = luigi.ListParameter(default=["must input sample files"])
     tar_file_uuids = luigi.ListParameter(default=["uuid"])
     tar_bundle_uuids = luigi.ListParameter(default=["bundle_uuid"])
-    tar_parent_uuids = luigi.ListParameter(default=["parent_uuid"])
+
+    parent_uuids = luigi.ListParameter(default=["parent_uuid"])
 
     tmp_dir = luigi.Parameter(default='/datastore')
     workflow_version = luigi.Parameter(default='3.0.1')
@@ -362,8 +361,10 @@ class ConsonanceTask(luigi.Task):
         # create a json for dockstoreRunningDockstoreTool, embed the RNA-Seq JSON as a param
 # below used to be a list of parent UUIDs; which is correct????
 #            "parent_uuids": "[%s]",
-#FIX THIS BELOW WHERE paired_parent_uuids IS USED !!!!!!!!!!!!!!!!!!
- 
+        parent_uuids = ','.join(map("{0}".format, self.parent_uuids))
+
+        print "parent uuids:%s" % parent_uuids
+
         p = self.save_json().open('w')
         print >>p, '''{
             "json_encoded": "%s",
@@ -380,7 +381,7 @@ class ConsonanceTask(luigi.Task):
             "vm_instance_cores": 36,
             "vm_instance_mem_gb": 60,
             "output_metadata_json": "/tmp/final_metadata.json"
-        }''' % (base64_json_str, self.target_tool, self.target_tool_url, self.redwood_token, self.redwood_host, ','.join(map("{0}".format, self.paired_parent_uuids)), self.workflow_type, self.tmp_dir )
+        }''' % (base64_json_str, self.target_tool, self.target_tool_url, self.redwood_token, self.redwood_host, parent_uuids, self.workflow_type, self.tmp_dir )
         p.close()
         # execute consonance run, parse the job UUID
         print "** SUBMITTING TO CONSONANCE **"
@@ -429,9 +430,10 @@ class ConsonanceTask(luigi.Task):
         #save BAM, etc.???
         task_uuid = uuid5(uuid.NAMESPACE_DNS,  
                  self.target_tool + self.target_tool_url + self.redwood_token + self.redwood_host 
-                 + ''.join(map("{0}".format, self.single_filenames)) + ''.join(map("{0}".format, self.single_parent_uuids))  
-                 + ''.join(map("{0}".format, self.paired_filenames)) + ''.join(map("{0}".format, self.paired_parent_uuids))  
-                 + ''.join(map("{0}".format, self.tar_filenames)) + ''.join(map("{0}".format, self.tar_parent_uuids))  
+                 + ''.join(map("{0}".format, self.single_filenames))  
+                 + ''.join(map("{0}".format, self.paired_filenames))
+                 + ''.join(map("{0}".format, self.tar_filenames)) 
+                 + ''.join(map("{0}".format, self.parent_uuids))  
                  + self.workflow_type + self.save_bam + self.save_wiggle + self.disable_cutadapt + self.workflow_version)
 #        print("task uuid:%s",str(task_uuid))
         return task_uuid
@@ -514,17 +516,16 @@ class RNASeqCoordinator(luigi.Task):
                             paired_files = []
                             paired_file_uuids = []
                             paired_bundle_uuids = []
-                            paired_parent_uuids = {}
 
                             single_files = []
                             single_file_uuids = []
                             single_bundle_uuids = []
-                            single_parent_uuids = {}
 
                             tar_files = []
                             tar_file_uuids = []
                             tar_bundle_uuids = []
-                            tar_parent_uuids = {}
+
+                            parent_uuids = {}
 
 
                             for file in analysis["workflow_outputs"]:
@@ -540,13 +541,13 @@ class RNASeqCoordinator(luigi.Task):
                                     #single_files.append(file["file_path"])
                                     #single_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
                                     #single_bundle_uuids.append(analysis["bundle_uuid"])
-                                    #single_parent_uuids[sample["sample_uuid"]] = True
+                                    #parent_uuids[sample["sample_uuid"]] = True
                                    #else if paired read: 
                                     print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
                                     paired_files.append(file["file_path"])
                                     paired_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
                                     paired_bundle_uuids.append(analysis["bundle_uuid"])
-                                    paired_parent_uuids[sample["sample_uuid"]] = True
+                                    parent_uuids[sample["sample_uuid"]] = True
                                 elif ( 
                                     file["file_type"] == "fastq.tar"):
 
@@ -554,7 +555,7 @@ class RNASeqCoordinator(luigi.Task):
                                     tar_files.append(file["file_path"])
                                     tar_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
                                     tar_bundle_uuids.append(analysis["bundle_uuid"])
-                                    tar_parent_uuids[sample["sample_uuid"]] = True
+                                    parent_uuids[sample["sample_uuid"]] = True
 
                             if len(listOfJobs) < int(self.max_jobs) and (len(paired_files) + len(tar_files) + len(single_files)) > 0:
 
@@ -563,9 +564,10 @@ class RNASeqCoordinator(luigi.Task):
  
                                  listOfJobs.append(ConsonanceTask(redwood_host=self.redwood_host, redwood_token=self.redwood_token, \
                                  image_descriptor=self.image_descriptor, dockstore_tool_running_dockstore_tool=self.dockstore_tool_running_dockstore_tool, \
-                                 single_filenames=single_files, single_file_uuids = single_file_uuids, single_bundle_uuids = single_bundle_uuids, single_parent_uuids = single_parent_uuids.keys(), \
-                                 paired_filenames=paired_files, paired_file_uuids = paired_file_uuids, paired_bundle_uuids = paired_bundle_uuids, paired_parent_uuids = paired_parent_uuids.keys(), \
-                                 tar_filenames=tar_files, tar_file_uuids = tar_file_uuids, tar_bundle_uuids = tar_bundle_uuids, tar_parent_uuids = tar_parent_uuids.keys(), \
+                                 parent_uuids = parent_uuids.keys(), \
+                                 single_filenames=single_files, single_file_uuids = single_file_uuids, single_bundle_uuids = single_bundle_uuids, \
+                                 paired_filenames=paired_files, paired_file_uuids = paired_file_uuids, paired_bundle_uuids = paired_bundle_uuids, \
+                                 tar_filenames=tar_files, tar_file_uuids = tar_file_uuids, tar_bundle_uuids = tar_bundle_uuids, \
                                  tmp_dir=self.tmp_dir))
                             print "total of %d jobs; max jobs allowed is %d" % (len(listOfJobs), int(self.max_jobs))
         # these jobs are yielded to
