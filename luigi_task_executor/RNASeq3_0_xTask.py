@@ -200,46 +200,13 @@ class ConsonanceTask(luigi.Task):
         json_str += '''
 "output_files": [
         '''
-        #for single end read inputs use the base name of one of the input files
-        #as the output name
-        if len(self.single_filenames) > 0:
-             new_filename = self.single_filenames[i].split('/')[-1].split('.')[0] + '.gz'
-             json_str += '''
+        new_filename = self.parent_uuids[0] + '.gz'
+        json_str += '''
     {
       "class": "File",
       "path": "/tmp/%s"
     }''' % (new_filename)
  
-
-        #for single end read inputs use the base name of one of the input files
-        #as the output name
-        if len(self.paired_filenames) > 0:
-            #put a comma after the preceeding files
-            if len(self.single_filenames) > 0:
-                json_str += "," 
-            new_filename = self.paired_filenames[i].split('/')[-1].split('.')[0] + '.gz'
-            json_str += '''
-    {
-      "class": "File",
-      "path": "/tmp/%s"
-    }''' % (new_filename)
- 
-
-        #each input tar file is a sample so each will have an output file 
-        if len(self.tar_filenames) > 0:
-            #put a comma after the preceeding files
-            if len(self.single_filenames) > 0 or len(self.paired_filenames) > 0:
-                json_str += "," 
-            i = 0
-            while i<len(self.tar_filenames):
-                json_str += '''
-        {
-          "class": "File",
-          "path": "/tmp/%s.gz"
-        }''' % (self.tar_filenames[i])
-                if i < len(self.tar_filenames) - 1:
-                    json_str += ","
-                i += 1
 
         json_str += '''
   ]'''
@@ -251,101 +218,29 @@ class ConsonanceTask(luigi.Task):
 
 "wiggle_files": [
         '''
-            #for single end read inputs use the base name of one of the input files
-            #as the output name
-            if len(self.single_filenames) > 0:
-                new_filename = self.single_filenames[0].split('/')[-1].split('.')[0] + '.wiggle.bg'
-                json_str += '''
+            new_filename = self.parent_uuids[0] + '.wiggle.bg'
+            json_str += '''
     {
       "class": "File",
       "path": "/tmp/%s"
     }''' % (new_filename)
  
-
-            #for single end read inputs use the base name of one of the input files
-            #as the output name
-            if len(self.paired_filenames) > 0:
-                #put a comma after the preceeding files
-                if len(self.single_filenames) > 0:
-                    json_str += "," 
-                new_filename = self.paired_filenames[0].split('/')[-1].split('.')[0] + '.wiggle.bg'
-                json_str += '''
-    {
-      "class": "File",
-      "path": "/tmp/%s"
-    }''' % (new_filename)
- 
-
-            #each input tar file is a sample so each will have a wiggle output file 
-            if len(self.tar_filenames) > 0:
-                #put a comma after the preceeding files
-                if len(self.single_filenames) > 0 or len(self.paired_filenames) > 0:
-                    json_str += "," 
-                i = 0
-                while i<len(self.tar_filenames):
-                    new_filename = self.tar_filenames[i].split('/')[-1].split('.')[0] + '.wiggle.bg'
-                    json_str += '''
-        {
-          "class": "File",
-          "path": "/tmp/%s"
-        }''' % (new_filename)
-                    if i < len(self.tar_filenames) - 1:
-                        json_str += ","
-                    i += 1
-
-
             json_str += '''
   ]'''
 
-        # if the user wants to save the wiggle output file
+        # if the user wants to save the BAM output file
         if self.save_bam == 'true':
             json_str += ''',
 
 "bam_files": [
         '''
-            #for single end read inputs use the base name of one of the input files
-            #as the output name
-            if len(self.single_filenames) > 0:
-                new_filename = self.single_filenames[0].split('/')[-1].split('.')[0] + '.sorted.bam'
-                json_str += '''
+            new_filename = self.parent_uuids[0] + '.sorted.bam'
+            json_str += '''
     {
       "class": "File",
       "path": "/tmp/%s"
     }''' % (new_filename)
  
-
-            #for single end read inputs use the base name of one of the input files
-            #as the output name
-            if len(self.paired_filenames) > 0:
-                #put a comma after the preceeding files
-                if len(self.single_filenames) > 0:
-                    json_str += "," 
-                new_filename = self.paired_filenames[0].split('/')[-1].split('.')[0] + '.sorted.bam'
-                json_str += '''
-    {
-      "class": "File",
-      "path": "/tmp/%s"
-    }''' % (new_filename)
- 
-
-            #each input tar file is a sample so each will have a wiggle output file 
-            if len(self.tar_filenames) > 0:
-                #put a comma after the preceeding files
-                if len(self.single_filenames) > 0 or len(self.paired_filenames) > 0:
-                    json_str += "," 
-                i = 0
-                while i<len(self.tar_filenames):
-                    new_filename = self.tar_filenames[i].split('/')[-1].split('.')[0] + '.sorted.bam'
-                    json_str += '''
-        {
-          "class": "File",
-          "path": "/tmp/%s"
-        }''' % (new_filename)
-                    if i < len(self.tar_filenames) - 1:
-                        json_str += ","
-                    i += 1
-
-
             json_str += '''
   ]'''
 
