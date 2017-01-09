@@ -356,6 +356,7 @@ class RNASeqCoordinator(luigi.Task):
     tmp_dir = luigi.Parameter(default='/datastore')
     max_jobs = luigi.Parameter(default='1')
     bundle_uuid_filename_to_file_uuid = {}
+    process_sample_uuid = luigi.Parameter(default = "")
 
     #Consonance will not be called in test mode
     test_mode = luigi.BooleanParameter(default = False)
@@ -400,8 +401,13 @@ class RNASeqCoordinator(luigi.Task):
                print("Next sample of %d samples:" % len(specimen["samples"]))
                for sample in specimen["samples"]:
                    print("Next analysis of %d analysis:" % len(sample["analysis"]))
+                   #if a particular sample uuid is requested for processing and
+                   #the current sample uuid does not match go on to the next sample
+                   if self.process_sample_uuid and (self.process_sample_uuid != sample["sample_uuid"]):
+			continue
+
                    for analysis in sample["analysis"]:
-                        print "\nMetadata:submitter specimen id:"+specimen["submitter_specimen_id"]+" sample uuid:"+sample["sample_uuid"]+" analysis type:"+analysis["analysis_type"]+" normal RNA Seq quant:"+str(hit["_source"]["flags"]["normal_rna_seq_quantification"])+" tumor RNA Seq quant:"+str(hit["_source"]["flags"]["tumor_rna_seq_quantification"])+" "+specimen["submitter_specimen_type"]+" "+str(specimen["submitter_experimental_design"])
+                        print "\nMetadata:submitter specimen id:"+specimen["submitter_specimen_id"]+" sample uuid:"+sample["sample_uuid"]+" analysis type:"+analysis["analysis_type"]+" normal RNA Seq quant:"+str(hit["_source"]["flags"]["normal_rna_seq_quantification"])+" tumor RNA Seq quant:"+str(hit["_source"]["flags"]["tumor_rna_seq_quantification"])+" "+specimen["submitter_specimen_type"]+" "+str(specimen["submitter_experimental_design"]+"  analysis bundle uuid:"+analysis["bundle_uuid"])
                         workflow_version = analysis["workflow_version"]
                         workflow_major_version = int(workflow_version.split(".")[0])
                         print "workflow version:" + workflow_version + " " + "workflow major version:" +str(workflow_major_version)
@@ -448,13 +454,11 @@ class RNASeqCoordinator(luigi.Task):
                                     #parent_uuids[sample["sample_uuid"]] = True
                                    #else if paired read: 
 
-                                     #temporarily avoid processing fastq or fastq.gz 
-                                     continue
-#                                    print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
-#                                    paired_files.append(file["file_path"])
-#                                    paired_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
-#                                    paired_bundle_uuids.append(analysis["bundle_uuid"])
-#                                    parent_uuids[sample["sample_uuid"]] = True
+                                    print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
+                                    paired_files.append(file["file_path"])
+                                    paired_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
+                                    paired_bundle_uuids.append(analysis["bundle_uuid"])
+                                    parent_uuids[sample["sample_uuid"]] = True
                                 elif (file["file_type"] == "fastq.tar"):
 
                                     print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
