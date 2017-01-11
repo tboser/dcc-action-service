@@ -25,8 +25,8 @@ class ConsonanceTask(luigi.Task):
     redwood_host = luigi.Parameter("storage.ucsc-cgl.org")
     redwood_token = luigi.Parameter("must_be_defined")
     dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.7")
-    target_tool = luigi.Parameter(default="quay.io/ucsc_cgl/rnaseq-cgl-pipeline:latest")
-    target_tool_url = luigi.Parameter(default="https://dockstore.org/containers/quay.io/ucsc_cgl/rnaseq-cgl-pipeline/rnaseq-cgl-pipeline-3-x-x")
+    target_tool = luigi.Parameter(default="quay.io/ucsc_cgl/rnaseq-cgl-pipeline:3.0.2-1")
+    target_tool_url = luigi.Parameter(default="https://dockstore.org/containers/quay.io/ucsc_cgl/rnaseq-cgl-pipeline")
     workflow_type = luigi.Parameter(default="rna_seq_quantification")
     image_descriptor = luigi.Parameter("must be defined")
  
@@ -205,7 +205,7 @@ class ConsonanceTask(luigi.Task):
         json_str += '''
 "output_files": [
         '''
-        new_filename = self.parent_uuids[0] + '.gz'
+        new_filename = self.parent_uuids[0] + '.tar.gz'
         json_str += '''
     {
       "class": "File",
@@ -239,7 +239,7 @@ class ConsonanceTask(luigi.Task):
 
 "bam_files": [
         '''
-            new_filename = self.parent_uuids[0] + '.sorted.bam'
+            new_filename = self.parent_uuids[0] + '.sortedByCoord.md.bam'
             json_str += '''
     {
       "class": "File",
