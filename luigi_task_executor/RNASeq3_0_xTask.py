@@ -25,7 +25,7 @@ class ConsonanceTask(luigi.Task):
     redwood_host = luigi.Parameter("storage.ucsc-cgl.org")
     redwood_token = luigi.Parameter("must_be_defined")
     dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.7")
-    target_tool = luigi.Parameter(default="quay.io/ucsc_cgl/rnaseq-cgl-pipeline:3.0.2-1")
+    target_tool = luigi.Parameter(default="quay.io/ucsc_cgl/rnaseq-cgl-pipeline:3.0.2-2")
     target_tool_url = luigi.Parameter(default="https://dockstore.org/containers/quay.io/ucsc_cgl/rnaseq-cgl-pipeline")
     workflow_type = luigi.Parameter(default="rna_seq_quantification")
     image_descriptor = luigi.Parameter("must be defined")
@@ -123,23 +123,22 @@ class ConsonanceTask(luigi.Task):
   ],
             '''
 
-        # '"sample-tar": []' always required
-        # because of the way the CWL tar input is defined
-        json_str += '''
+        if len(self.tar_filenames) > 0:
+            json_str += '''
 "sample-tar": [
         '''
-        i = 0
-        while i<len(self.tar_filenames):
-            # append file information
+            i = 0
+            while i<len(self.tar_filenames):
+                # append file information
+                json_str += '''
+            {
+              "class": "File",
+              "path": "redwood://%s/%s/%s/%s"
+            }''' % (self.redwood_host, self.tar_bundle_uuids[i], self.tar_file_uuids[i], self.tar_filenames[i])
+                if i < len(self.tar_filenames) - 1:
+                    json_str += ","
+                i += 1
             json_str += '''
-        {
-          "class": "File",
-          "path": "redwood://%s/%s/%s/%s"
-        }''' % (self.redwood_host, self.tar_bundle_uuids[i], self.tar_file_uuids[i], self.tar_filenames[i])
-            if i < len(self.tar_filenames) - 1:
-                json_str += ","
-            i += 1
-        json_str += '''
   ],
             '''
 
@@ -459,13 +458,13 @@ class RNASeqCoordinator(luigi.Task):
                                     paired_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
                                     paired_bundle_uuids.append(analysis["bundle_uuid"])
                                     parent_uuids[sample["sample_uuid"]] = True
-                                elif (file["file_type"] == "fastq.tar"):
+ #                               elif (file["file_type"] == "fastq.tar"):
 
-                                    print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
-                                    tar_files.append(file["file_path"])
-                                    tar_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
-                                    tar_bundle_uuids.append(analysis["bundle_uuid"])
-                                    parent_uuids[sample["sample_uuid"]] = True
+ #                                   print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
+ #                                   tar_files.append(file["file_path"])
+ #                                   tar_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
+ #                                   tar_bundle_uuids.append(analysis["bundle_uuid"])
+ #                                   parent_uuids[sample["sample_uuid"]] = True
 
                             if len(listOfJobs) < int(self.max_jobs) and (len(paired_files) + len(tar_files) + len(single_files)) > 0:
 
