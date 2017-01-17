@@ -25,7 +25,7 @@ class ConsonanceTask(luigi.Task):
     redwood_host = luigi.Parameter("storage.ucsc-cgl.org")
     redwood_token = luigi.Parameter("must_be_defined")
     dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.7")
-    target_tool = luigi.Parameter(default="quay.io/ucsc_cgl/rnaseq-cgl-pipeline:3.0.2-2")
+    target_tool = luigi.Parameter(default="quay.io/ucsc_cgl/rnaseq-cgl-pipeline:3.0.2-3")
     target_tool_url = luigi.Parameter(default="https://dockstore.org/containers/quay.io/ucsc_cgl/rnaseq-cgl-pipeline")
     workflow_type = luigi.Parameter(default="rna_seq_quantification")
     image_descriptor = luigi.Parameter("must be defined")
@@ -394,8 +394,14 @@ class RNASeqCoordinator(luigi.Task):
 
         print("Got %d Hits:" % res['hits']['total'])
         for hit in res['hits']['hits']:
-            print("\n\n\n%(donor_uuid)s %(center_name)s %(project)s" % hit["_source"])
+            print("\n\n\nDonor uuid:%(donor_uuid)s Center Name:%(center_name)s Program:%(program)s Project:%(project)s" % hit["_source"])
             print("Got %d specimens:" % len(hit["_source"]["specimen"]))
+            
+#            if hit["_source"]["program"] != "SU2C" or hit["_source"]["project"] != "WCDT":
+#                continue
+            if hit["_source"]["program"] != "Treehouse":
+                continue
+
             for specimen in hit["_source"]["specimen"]:
                print("Next sample of %d samples:" % len(specimen["samples"]))
                for sample in specimen["samples"]:
@@ -440,10 +446,11 @@ class RNASeqCoordinator(luigi.Task):
                             for file in analysis["workflow_outputs"]:
                                 print "file type:"+file["file_type"]
                                 print "file name:"+file["file_path"]
-                                if (
-                                    file["file_type"] == "fastq" or
-                                    file["file_type"] == "fastq.gz"):
-                                 
+#                                if (
+#                                    file["file_type"] == "fastq" or
+#                                    file["file_type"] == "fastq.gz"):
+#                                    file["file_type"] == "fastq.gz"):
+                                
                                    #TODO add single read file support!
                                    #if single read:
                                     #print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
@@ -453,18 +460,20 @@ class RNASeqCoordinator(luigi.Task):
                                     #parent_uuids[sample["sample_uuid"]] = True
                                    #else if paired read: 
 
-                                    print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
-                                    paired_files.append(file["file_path"])
-                                    paired_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
-                                    paired_bundle_uuids.append(analysis["bundle_uuid"])
-                                    parent_uuids[sample["sample_uuid"]] = True
- #                               elif (file["file_type"] == "fastq.tar"):
+#                                    print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
+#                                    paired_files.append(file["file_path"])
+#                                    paired_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
+#                                    paired_bundle_uuids.append(analysis["bundle_uuid"])
+#                                    parent_uuids[sample["sample_uuid"]] = True
+#                                elif (file["file_type"] == "fastq.tar"):
+                                if (file["file_type"] == "fastq.tar"):
 
- #                                   print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
- #                                   tar_files.append(file["file_path"])
- #                                   tar_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
- #                                   tar_bundle_uuids.append(analysis["bundle_uuid"])
- #                                   parent_uuids[sample["sample_uuid"]] = True
+
+                                    print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
+                                    tar_files.append(file["file_path"])
+                                    tar_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
+                                    tar_bundle_uuids.append(analysis["bundle_uuid"])
+                                    parent_uuids[sample["sample_uuid"]] = True
 
                             if len(listOfJobs) < int(self.max_jobs) and (len(paired_files) + len(tar_files) + len(single_files)) > 0:
 
