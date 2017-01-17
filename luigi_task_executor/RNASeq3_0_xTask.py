@@ -416,13 +416,14 @@ class RNASeqCoordinator(luigi.Task):
                         workflow_version = analysis["workflow_version"]
                         workflow_major_version = int(workflow_version.split(".")[0])
                         print "workflow version:" + workflow_version + " " + "workflow major version:" +str(workflow_major_version)
+                        # FIXME: Walt, the workflow here is the spinnaker upload, not the rnaseq
                         if analysis["analysis_type"] == "sequence_upload" and \
-                              (((hit["_source"]["flags"]["normal_rna_seq_quantification"] == False or workflow_major_version < 3) and \
-#                                   re.match("^Normal - ", specimen["submitter_specimen_type"])) or
+                              ((hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"] == False and \
+                                   sample["sample_uuid"] in hit["_source"]["missing_items"]["normal_rna_seq_cgl_workflow_3_0_x"] and \
                                    re.match("^Normal - ", specimen["submitter_specimen_type"]) and \
                                    re.match("^RNA-Seq$", specimen["submitter_experimental_design"])) or \
-                               ((hit["_source"]["flags"]["tumor_rna_seq_quantification"] == False or workflow_major_version < 3) and \
-#                                   re.match("^Primary tumour - |^Recurrent tumour - |^Metastatic tumour - |^Cell line -", specimen["submitter_specimen_type"]))):
+                               (hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"] == False and \
+                                   sample["sample_uuid"] in hit["_source"]["missing_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] and \
                                    re.match("^Primary tumour - |^Recurrent tumour - |^Metastatic tumour - |^Cell line -", specimen["submitter_specimen_type"]) and \
                                    re.match("^RNA-Seq$", specimen["submitter_experimental_design"]))):
 
