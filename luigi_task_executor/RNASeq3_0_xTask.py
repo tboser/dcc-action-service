@@ -72,7 +72,7 @@ class ConsonanceTask(luigi.Task):
 
         print "** MAKE TEMP DIR **"
         # create a unique temp dir
-        cmd = '''mkdir -p %s/consonance-jobs/RNASeq_3_0_x_Coordinator/tar_test/%s/''' % (self.tmp_dir, task_uuid)
+        cmd = '''mkdir -p %s/consonance-jobs/RNASeq_3_0_x_Coordinator/fastq_gz/%s/''' % (self.tmp_dir, task_uuid)
         print cmd
         result = subprocess.call(cmd, shell=True)
         if result != 0:
@@ -337,11 +337,11 @@ class ConsonanceTask(luigi.Task):
 
     def save_json(self):
         task_uuid = self.get_task_uuid()
-        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_0_x_Coordinator/tar_test/%s/dockstore_tool.json' % (self.tmp_dir, task_uuid))
+        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_0_x_Coordinator/fastq_gz/%s/dockstore_tool.json' % (self.tmp_dir, task_uuid))
 
     def output(self):
         task_uuid = self.get_task_uuid()
-        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_0_x_Coordinator/tar_test/%s/finished.txt' % (self.tmp_dir, task_uuid))
+        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_0_x_Coordinator/fastq_gz/%s/finished.txt' % (self.tmp_dir, task_uuid))
 
 class RNASeqCoordinator(luigi.Task):
 
@@ -421,8 +421,21 @@ class RNASeqCoordinator(luigi.Task):
 #                        workflow_version = analysis["workflow_version"]
 #                        workflow_major_version = int(workflow_version.split(".")[0])
 #                        print "workflow version:" + workflow_version + " " + "workflow major version:" +str(workflow_major_version)
+                        print "work flow outputs:"
+                        for output in analysis["workflow_outputs"]:
+                            print output                       
+ 
+#                        if "rna_seq_quantification" in sample["analysis"]["analysis_type"]: 
+                        rna_seq_outputs_len = 0
+                        for filter_analysis in sample["analysis"]:
+                                if filter_analysis["analysis_type"] == "rna_seq_quantification":
+                                    rna_seq_outputs = filter_analysis["workflow_outputs"] 
+                                    print "rna seq workflow outputs:"
+                                    print rna_seq_outputs
+                                    rna_seq_outputs_len = len(filter_analysis["workflow_outputs"]) 
+                                    print "len of rna_seq outputs is:"+str(rna_seq_outputs_len)      
 
-                        if analysis["analysis_type"] == "sequence_upload" and \
+                        if ( (analysis["analysis_type"] == "sequence_upload" and \
                               ((hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"] == False and \
                                    sample["sample_uuid"] in hit["_source"]["missing_items"]["normal_rna_seq_cgl_workflow_3_0_x"] and \
                                    re.match("^Normal - ", specimen["submitter_specimen_type"]) and \
@@ -430,7 +443,21 @@ class RNASeqCoordinator(luigi.Task):
                                (hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"] == False and \
                                    sample["sample_uuid"] in hit["_source"]["missing_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] and \
                                    re.match("^Primary tumour - |^Recurrent tumour - |^Metastatic tumour - |^Cell line -", specimen["submitter_specimen_type"]) and \
-                                   re.match("^RNA-Seq$", specimen["submitter_experimental_design"]))):
+                                   re.match("^RNA-Seq$", specimen["submitter_experimental_design"])))) or \
+
+#                            (analysis["analysis_type"] == "rna_seq_quantification" and \
+                             (analysis["analysis_type"] == "sequence_upload" and \
+                              ((hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"] == True and \
+                                   (sample["sample_uuid"] in hit["_source"]["missing_items"]["normal_rna_seq_cgl_workflow_3_0_x"] or \
+                                   (sample["sample_uuid"] in hit["_source"]["present_items"]["normal_rna_seq_cgl_workflow_3_0_x"] and rna_seq_outputs_len == 0)) and \
+                                   re.match("^Normal - ", specimen["submitter_specimen_type"]) and \
+                                   re.match("^RNA-Seq$", specimen["submitter_experimental_design"])) or \
+                               (hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"] == True and \
+                                   (sample["sample_uuid"] in hit["_source"]["missing_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] or \
+                                   (sample["sample_uuid"] in hit["_source"]["present_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] and rna_seq_outputs_len == 0)) and \
+                                   re.match("^Primary tumour - |^Recurrent tumour - |^Metastatic tumour - |^Cell line -", specimen["submitter_specimen_type"]) and \
+                                   re.match("^RNA-Seq$", specimen["submitter_experimental_design"])))) ):
+
 
                             #print analysis
                             print "HIT!!!! "+analysis["analysis_type"]+" "+str(hit["_source"]["flags"]["normal_rna_seq_quantification"])+" "+str(hit["_source"]["flags"]["tumor_rna_seq_quantification"])+" "+specimen["submitter_specimen_type"]+" "+str(specimen["submitter_experimental_design"])
@@ -452,10 +479,10 @@ class RNASeqCoordinator(luigi.Task):
                             for file in analysis["workflow_outputs"]:
                                 print "file type:"+file["file_type"]
                                 print "file name:"+file["file_path"]
-#                                if (
+                                if (
 #                                    file["file_type"] == "fastq" or
 #                                    file["file_type"] == "fastq.gz"):
-#                                    file["file_type"] == "fastq.gz"):
+                                    file["file_type"] == "fastq.gz"):
                                 
                                    #TODO add single read file support!
                                    #if single read:
@@ -466,20 +493,20 @@ class RNASeqCoordinator(luigi.Task):
                                     #parent_uuids[sample["sample_uuid"]] = True
                                    #else if paired read: 
 
-#                                    print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
-#                                    paired_files.append(file["file_path"])
-#                                    paired_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
-#                                    paired_bundle_uuids.append(analysis["bundle_uuid"])
-#                                    parent_uuids[sample["sample_uuid"]] = True
-#                                elif (file["file_type"] == "fastq.tar"):
-                                if (file["file_type"] == "fastq.tar"):
-
-
                                     print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
-                                    tar_files.append(file["file_path"])
-                                    tar_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
-                                    tar_bundle_uuids.append(analysis["bundle_uuid"])
+                                    paired_files.append(file["file_path"])
+                                    paired_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
+                                    paired_bundle_uuids.append(analysis["bundle_uuid"])
                                     parent_uuids[sample["sample_uuid"]] = True
+#                                elif (file["file_type"] == "fastq.tar"):
+#                                if (file["file_type"] == "fastq.tar"):
+
+
+#                                    print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
+#                                    tar_files.append(file["file_path"])
+#                                    tar_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
+#                                    tar_bundle_uuids.append(analysis["bundle_uuid"])
+#                                    parent_uuids[sample["sample_uuid"]] = True
 
                             if len(listOfJobs) < int(self.max_jobs) and (len(paired_files) + len(tar_files) + len(single_files)) > 0:
 
