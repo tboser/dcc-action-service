@@ -20,52 +20,8 @@ from elasticsearch import Elasticsearch
 #for hack to get around non self signed certificates
 import ssl
 
-# TODO
-# * I think we want to use S3 for our touch files (aka lock files) since that will be better than local files that could be lost/deleted
-import os
-
-import boto
-from boto.s3.key import Key
-
-def upload_to_s3(aws_access_key_id, aws_secret_access_key, file, bucket, key, callback=None, md5=None, reduced_redundancy=False, content_type=None):
-    """
-    Uploads the given file to the AWS S3
-    bucket and key specified.
-
-    callback is a function of the form:
-
-    def callback(complete, total)
-
-    The callback should accept two integer parameters,
-    the first representing the number of bytes that
-    have been successfully transmitted to S3 and the
-    second representing the size of the to be transmitted
-    object.
-
-    Returns boolean indicating success/failure of upload.
-    """
-    try:
-        size = os.fstat(file.fileno()).st_size
-    except:
-        # Not all file objects implement fileno(),
-        # so we fall back on this
-        file.seek(0, os.SEEK_END)
-        size = file.tell()
-
-    conn = boto.connect_s3(aws_access_key_id, aws_secret_access_key)
-    bucket = conn.get_bucket(bucket, validate=True)
-    k = Key(bucket)
-    k.key = key
-    if content_type:
-        k.set_metadata('Content-Type', content_type)
-    sent = k.set_contents_from_file(file, cb=callback, md5=md5, reduced_redundancy=reduced_redundancy, rewind=True)
-
-    # Rewind for later use
-    file.seek(0)
-
-    if sent == size:
-        return True
-    return False
+#Amazon S3 support for writing touch files to S3
+from luigi.s3 import S3Target
 
 
 class ConsonanceTask(luigi.Task):
@@ -384,11 +340,13 @@ class ConsonanceTask(luigi.Task):
 
     def save_json(self):
         task_uuid = self.get_task_uuid()
-        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_0_x_Coordinator/fastq_gz/%s/dockstore_tool.json' % (self.tmp_dir, task_uuid))
+        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/dockstore_tool.json' % (self.tmp_dir, task_uuid))
+        #return luigi.S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/dockstore_tool.json' % ( task_uuid))
 
     def output(self):
         task_uuid = self.get_task_uuid()
-        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_0_x_Coordinator/fastq_gz/%s/finished.txt' % (self.tmp_dir, task_uuid))
+        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/finished.txt' % (self.tmp_dir, task_uuid))
+        #return luigi.S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/finished.txt' % ( task_uuid))
 
 class RNASeqCoordinator(luigi.Task):
 
@@ -613,7 +571,8 @@ class RNASeqCoordinator(luigi.Task):
         # the final report
         ts = time.time()
         ts_str = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H:%M:%S')
-        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_0_x_Coordinator/RNASeqTask-%s.txt' % (self.tmp_dir, ts_str))
+        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/RNASeqTask-%s.txt' % (self.tmp_dir, ts_str))
+        #return luigi.S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/RNASeqTask-%s.txt' % (ts_str))
 
     def fileToUUID(self, input, bundle_uuid):
         return self.bundle_uuid_filename_to_file_uuid[bundle_uuid+"_"+input]
