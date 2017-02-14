@@ -1,5 +1,3 @@
-
-
 import luigi
 import json
 import time
@@ -14,6 +12,7 @@ from uuid import uuid4
 from uuid import uuid5
 import os
 import sys
+import copy
 
 from elasticsearch import Elasticsearch
 
@@ -22,7 +21,8 @@ import ssl
 
 #Amazon S3 support for writing touch files to S3
 from luigi.s3 import S3Target
-
+#luigi S3 uses boto for AWS credentials
+import boto
 
 class ConsonanceTask(luigi.Task):
     redwood_host = luigi.Parameter("storage.ucsc-cgl.org")
@@ -60,11 +60,13 @@ class ConsonanceTask(luigi.Task):
     parent_uuids = luigi.ListParameter(default=["parent_uuid"])
 
     tmp_dir = luigi.Parameter(default='/datastore')
-    workflow_version = luigi.Parameter(default='3.0.2')
+
+    submitter_sample_id = luigi.Parameter(default='must input submitter sample id')
+    meta_data = luigi.Parameter(default="must input metadata")
+    touch_file_path = luigi.Parameter(default='must input touch file path')
 
     #Consonance will not be called in test mode
     test_mode = luigi.BooleanParameter(default = False)
-
 
 
     def run(self):
@@ -75,7 +77,7 @@ class ConsonanceTask(luigi.Task):
 
         print "** MAKE TEMP DIR **"
         # create a unique temp dir
-        cmd = '''mkdir -p %s/consonance-jobs/RNASeq_3_0_x_Coordinator/fastq_gz/%s/''' % (self.tmp_dir, task_uuid)
+        cmd = '''mkdir -p %s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/''' % (self.tmp_dir, task_uuid)
         print cmd
         result = subprocess.call(cmd, shell=True)
         if result != 0:
@@ -267,7 +269,7 @@ class ConsonanceTask(luigi.Task):
 
         print "parent uuids:%s" % parent_uuids
 
-        p = self.save_json().open('w')
+        p = self.save_dockstore_json().open('w')
         print >>p, '''{
             "json_encoded": "%s",
             "docker_uri": "%s",
@@ -285,6 +287,7 @@ class ConsonanceTask(luigi.Task):
             "output_metadata_json": "/tmp/final_metadata.json"
         }''' % (base64_json_str, self.target_tool, self.target_tool_url, self.redwood_token, self.redwood_host, parent_uuids, self.workflow_type, self.tmp_dir )
         p.close()
+
         # execute consonance run, parse the job UUID
         cmd = ["consonance", "run", "--image-descriptor", self.image_descriptor, "--flavour", "c4.8xlarge", "--run-descriptor", p.path]
         # loop to check the consonance status until finished or failed
@@ -301,10 +304,21 @@ class ConsonanceTask(luigi.Task):
 
             if result == 0:
                 print "Consonance job returned success code!"
+                self.meta_data["consonance_id"] = '????'
             else:
                 print "ERROR: Consonance job failed!!!"
         else:
             print "TEST MODE: Consonance command would be:"+ ' '.join(cmd)
+            self.meta_data["consonance_id"] = 'no consonance id in test mode'
+
+
+        #save the donor metadata for the sample being processed to the touch
+        # file directory
+        meta_data_json = json.dumps(self.meta_data)
+        m = self.save_metadata_json().open('w')
+        print >>m, meta_data_json
+        m.close()
+
             
 #        if result == 0:
 #            cmd = "rm -rf "+self.data_dir+"/"+self.bundle_uuid+"/bamstats_report.zip "+self.data_dir+"/"+self.bundle_uuid+"/datastore/"
@@ -329,24 +343,32 @@ class ConsonanceTask(luigi.Task):
         #including the path to star, kallisto, rsem and
         #save BAM, etc.???
         task_uuid = uuid5(uuid.NAMESPACE_DNS,  
-                 self.target_tool + self.target_tool_url + self.redwood_token + self.redwood_host 
+                 self.target_tool + self.target_tool_url 
                  + ''.join(map("{0}".format, self.single_filenames))  
                  + ''.join(map("{0}".format, self.paired_filenames))
                  + ''.join(map("{0}".format, self.tar_filenames)) 
                  + ''.join(map("{0}".format, self.parent_uuids))  
-                 + self.workflow_type + self.save_bam + self.save_wiggle + self.disable_cutadapt + self.workflow_version)
+                 + self.workflow_type + self.save_bam + self.save_wiggle + self.disable_cutadapt)
 #        print("task uuid:%s",str(task_uuid))
         return task_uuid
 
-    def save_json(self):
-        task_uuid = self.get_task_uuid()
-        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/dockstore_tool.json' % (self.tmp_dir, task_uuid))
-        #return luigi.S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/dockstore_tool.json' % ( task_uuid))
+    def save_metadata_json(self):
+        #task_uuid = self.get_task_uuid()
+        #return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/metadata.json' % (self.tmp_dir, task_uuid))
+        #return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/metadata.json' % ( task_uuid))
+        return S3Target('%s/%s_meta_data.json' % (self.touch_file_path, self.submitter_sample_id ))
+
+    def save_dockstore_json(self):
+        #task_uuid = self.get_task_uuid()
+        #return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/dockstore_tool.json' % (self.tmp_dir, task_uuid))
+        #return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/dockstore_tool.json' % ( task_uuid))
+        return S3Target('%s/%s_dockstore_tool.json' % (self.touch_file_path, self.submitter_sample_id ))
 
     def output(self):
-        task_uuid = self.get_task_uuid()
-        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/finished.txt' % (self.tmp_dir, task_uuid))
-        #return luigi.S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/finished.txt' % ( task_uuid))
+        #task_uuid = self.get_task_uuid()
+        #return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/finished.txt' % (self.tmp_dir, task_uuid))
+        #return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/finished.txt' % ( task_uuid))
+        return S3Target('%s/%s_finished.json' % (self.touch_file_path, self.submitter_sample_id ))
 
 class RNASeqCoordinator(luigi.Task):
 
@@ -361,6 +383,8 @@ class RNASeqCoordinator(luigi.Task):
     max_jobs = luigi.Parameter(default='1')
     bundle_uuid_filename_to_file_uuid = {}
     process_sample_uuid = luigi.Parameter(default = "")
+
+    touch_file_path_prefix = "s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/"
 
     #Consonance will not be called in test mode
     test_mode = luigi.BooleanParameter(default = False)
@@ -416,8 +440,25 @@ class RNASeqCoordinator(luigi.Task):
                    if self.process_sample_uuid and (self.process_sample_uuid != sample["sample_uuid"]):
 			continue
 
+#should we only put the sample metatdata being processed, not the donor
+#metadata in the touch file????
+
+#                   sample_meta_data["center_name"] = hit["_source"]["center_name"]
+#                   sample_meta_data["timestamp"] = hit["_source"]["timestamp"]
+#                   sample_meta_data["project"] = hit["_source"]["project"]
+#                   sample_meta_data["program"] = hit["_source"]["program"]
+#                   sample_meta_data["submitter_donor_id"] = hit["_source"]["submitter_donor_id"]
+#                   sample_meta_data["specimen"] = []
+#                   sample_meta_data["submitter_specimen_id"] = specimen["submitter_specimen_id"]
+#                   sample_meta_data["samples"] = [sample]
+#                   meta_data = json.dumps(sample_meta_data)
+#                   meta_data = json.dumps(hit["_source"])
+#                   print "sample json:"
+#                   print sample_json 
+                  
+
                    for analysis in sample["analysis"]:
-                        print "\nMetadata:submitter specimen id:"+specimen["submitter_specimen_id"]+" sample uuid:"+sample["sample_uuid"]+" analysis type:"+analysis["analysis_type"] 
+                        print "\nMetadata:submitter specimen id:"+specimen["submitter_specimen_id"]+" submitter sample id:"+sample["submitter_sample_id"]+" sample uuid:"+sample["sample_uuid"]+" analysis type:"+analysis["analysis_type"] 
                         print "normal RNA Seq quant:"+str(hit["_source"]["flags"]["normal_rna_seq_quantification"])+" tumor RNA Seq quant:"+str(hit["_source"]["flags"]["tumor_rna_seq_quantification"])
                         print "Specimen type:"+specimen["submitter_specimen_type"]+" Experimental design:"+str(specimen["submitter_experimental_design"]+" Analysis bundle uuid:"+analysis["bundle_uuid"])
                         print "Normal RNASeq 3.0.x flag:"+str(hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"])+" Tumor RNASeq 3.0.x flag:"+str(hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"])
@@ -462,9 +503,47 @@ class RNASeqCoordinator(luigi.Task):
                                    re.match("^Primary tumour - |^Recurrent tumour - |^Metastatic tumour - |^Cell line -", specimen["submitter_specimen_type"]) and \
                                    re.match("^RNA-Seq$", specimen["submitter_experimental_design"])))) ):
 
+                            
+                            touch_file_path = self.touch_file_path_prefix+"/"+hit["_source"]["center_name"]+"_"+hit["_source"]["program"] \
+                                                                    +"_"+hit["_source"]["project"]+"_"+hit["_source"]["submitter_donor_id"] \
+                                                                    +"_"+specimen["submitter_specimen_id"]
+                            submitter_sample_id = sample["submitter_sample_id"]
+
+                            #make a copy of the metadata for this donor submission and remove
+                            #all the sample information except for the sample we are going to
+                            #process in the next job submission
+                            #also remove other unneeded data such as 'present items' and 
+                            #'missing items' etc.
+                            #This metadata will be passed to the Consonance Task and some
+                            #some of the meta data will be used in the Luigi status page for the job
+                            meta_data = {}
+                            meta_data = copy.deepcopy(hit["_source"])
+    
+                            del meta_data["present_items"]
+                            del meta_data["missing_items"]
+                            for meta_data_specimen in meta_data["specimen"]:
+                                found_sample_in_specimen = False
+                                for meta_data_sample in meta_data_specimen["samples"]:
+                                    if meta_data_sample["sample_uuid"] != sample["sample_uuid"]:
+                                        print "\n\ndeleting meta data sample:"+json.dumps(meta_data_sample)
+                                        print "\n\n"
+                                        meta_data_specimen["samples"].remove(meta_data_sample)
+                                    else:
+                                        found_specimen_in_sample = True
+                                if found_sample_in_specimen is False:
+                                    meta_data["specimen"].remove(meta_data_specimen)
+                                    print "\n\ndeleting meta data specimen:"+json.dumps(meta_data_specimen)
+                                    print "\n\n"
+
+#                            meta_data_json = json.dumps(meta_data)
+#                            print "meta data:"
+#                            print meta_data_json
+
 
                             #print analysis
                             print "HIT!!!! "+analysis["analysis_type"]+" "+str(hit["_source"]["flags"]["normal_rna_seq_quantification"])+" "+str(hit["_source"]["flags"]["tumor_rna_seq_quantification"])+" "+specimen["submitter_specimen_type"]+" "+str(specimen["submitter_experimental_design"])
+
+
                             paired_files = []
                             paired_file_uuids = []
                             paired_bundle_uuids = []
@@ -550,7 +629,8 @@ class RNASeqCoordinator(luigi.Task):
                                          single_filenames=single_files, single_file_uuids = single_file_uuids, single_bundle_uuids = single_bundle_uuids, \
                                          paired_filenames=paired_files, paired_file_uuids = paired_file_uuids, paired_bundle_uuids = paired_bundle_uuids, \
                                          tar_filenames=tar_files, tar_file_uuids = tar_file_uuids, tar_bundle_uuids = tar_bundle_uuids, \
-                                         tmp_dir=self.tmp_dir, test_mode=self.test_mode))
+                                         tmp_dir=self.tmp_dir, submitter_sample_id = submitter_sample_id, meta_data = meta_data, \
+                                         touch_file_path = touch_file_path, test_mode=self.test_mode))
         print "total of %d jobs; max jobs allowed is %d\n\n" % (len(listOfJobs), int(self.max_jobs))
 
         # these jobs are yielded to
@@ -571,12 +651,13 @@ class RNASeqCoordinator(luigi.Task):
         # the final report
         ts = time.time()
         ts_str = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H:%M:%S')
-        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/RNASeqTask-%s.txt' % (self.tmp_dir, ts_str))
-        #return luigi.S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/RNASeqTask-%s.txt' % (ts_str))
+        #return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/RNASeqTask-%s.txt' % (self.tmp_dir, ts_str))
+        return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/RNASeqTask-%s.txt' % (ts_str))
 
     def fileToUUID(self, input, bundle_uuid):
         return self.bundle_uuid_filename_to_file_uuid[bundle_uuid+"_"+input]
         #"afb54dff-41ad-50e5-9c66-8671c53a278b"
+
 
 if __name__ == '__main__':
     luigi.run()
