@@ -430,6 +430,8 @@ class RNASeqCoordinator(luigi.Task):
 #                continue
 #            if hit["_source"]["program"] != "Treehouse":
 #                continue
+            if hit["_source"]["program"] == "PROTECT_NBL":
+                continue
 
             for specimen in hit["_source"]["specimen"]:
                print("Next sample of %d samples:" % len(specimen["samples"]))
@@ -439,23 +441,6 @@ class RNASeqCoordinator(luigi.Task):
                    #the current sample uuid does not match go on to the next sample
                    if self.process_sample_uuid and (self.process_sample_uuid != sample["sample_uuid"]):
 			continue
-
-#should we only put the sample metatdata being processed, not the donor
-#metadata in the touch file????
-
-#                   sample_meta_data["center_name"] = hit["_source"]["center_name"]
-#                   sample_meta_data["timestamp"] = hit["_source"]["timestamp"]
-#                   sample_meta_data["project"] = hit["_source"]["project"]
-#                   sample_meta_data["program"] = hit["_source"]["program"]
-#                   sample_meta_data["submitter_donor_id"] = hit["_source"]["submitter_donor_id"]
-#                   sample_meta_data["specimen"] = []
-#                   sample_meta_data["submitter_specimen_id"] = specimen["submitter_specimen_id"]
-#                   sample_meta_data["samples"] = [sample]
-#                   meta_data = json.dumps(sample_meta_data)
-#                   meta_data = json.dumps(hit["_source"])
-#                   print "sample json:"
-#                   print sample_json 
-                  
 
                    for analysis in sample["analysis"]:
                         print "\nMetadata:submitter specimen id:"+specimen["submitter_specimen_id"]+" submitter sample id:"+sample["submitter_sample_id"]+" sample uuid:"+sample["sample_uuid"]+" analysis type:"+analysis["analysis_type"] 
@@ -509,35 +494,31 @@ class RNASeqCoordinator(luigi.Task):
                                                                     +"_"+specimen["submitter_specimen_id"]
                             submitter_sample_id = sample["submitter_sample_id"]
 
-                            #make a copy of the metadata for this donor submission and remove
-                            #all the sample information except for the sample we are going to
-                            #process in the next job submission
-                            #also remove other unneeded data such as 'present items' and 
-                            #'missing items' etc.
                             #This metadata will be passed to the Consonance Task and some
                             #some of the meta data will be used in the Luigi status page for the job
                             meta_data = {}
-                            meta_data = copy.deepcopy(hit["_source"])
-    
-                            del meta_data["present_items"]
-                            del meta_data["missing_items"]
-                            for meta_data_specimen in meta_data["specimen"]:
-                                found_sample_in_specimen = False
-                                for meta_data_sample in meta_data_specimen["samples"]:
-                                    if meta_data_sample["sample_uuid"] != sample["sample_uuid"]:
-                                        print "\n\ndeleting meta data sample:"+json.dumps(meta_data_sample)
-                                        print "\n\n"
-                                        meta_data_specimen["samples"].remove(meta_data_sample)
-                                    else:
-                                        found_specimen_in_sample = True
-                                if found_sample_in_specimen is False:
-                                    meta_data["specimen"].remove(meta_data_specimen)
-                                    print "\n\ndeleting meta data specimen:"+json.dumps(meta_data_specimen)
-                                    print "\n\n"
+                            meta_data["program"] = hit["_source"]["program"]
+                            meta_data["project"] = hit["_source"]["project"]
+                            meta_data["center_name"] = hit["_source"]["center_name"]
+                            meta_data["submitter_donor_id"] = hit["_source"]["submitter_donor_id"]
+                            meta_data["donor_uuid"] = hit["_source"]["donor_uuid"]
+                            if "submitter_donor_primary_site" in hit["_source"]:
+                                meta_data["submitter_donor_primary_site"] = hit["_source"]["submitter_donor_primary_site"]
+                            else:
+                                meta_data["submitter_donor_primary_site"] = "not provided"
+                            meta_data["submitter_specimen_id"] = specimen["submitter_specimen_id"]
+                            meta_data["specimen_uuid"] = specimen["specimen_uuid"]
+                            meta_data["submitter_specimen_type"] = specimen["submitter_specimen_type"]
+                            meta_data["submitter_experimental_design"] = specimen["submitter_experimental_design"]
+                            meta_data["submitter_sample_id"] = sample["submitter_sample_id"]
+                            meta_data["sample_uuid"] = sample["sample_uuid"]
+                            meta_data["analysis_type"] = "rna_seq_quantification"
+                            meta_data["workflow_name"] = "quay.io/ucsc_cgl/rnaseq-cgl-pipeline"
+                            meta_data["workflow_version"] = "3.0.2-3"
 
-#                            meta_data_json = json.dumps(meta_data)
-#                            print "meta data:"
-#                            print meta_data_json
+                            meta_data_json_preview = json.dumps(meta_data)
+                            print "meta data:"
+                            print meta_data_json_preview
 
 
                             #print analysis
