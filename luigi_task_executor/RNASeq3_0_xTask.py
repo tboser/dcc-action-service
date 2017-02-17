@@ -72,7 +72,7 @@ class ConsonanceTask(luigi.Task):
 
         print "** MAKE TEMP DIR **"
         # create a unique temp dir
-        cmd = '''mkdir -p %s/consonance-jobs/RNASeq_3_0_x_Coordinator/fastq_gz/%s/''' % (self.tmp_dir, task_uuid)
+        cmd = '''mkdir -p %s/consonance-jobs/RNASeq_3_0_x_Coordinator/tar_fastqgz/%s/''' % (self.tmp_dir, task_uuid)
         print cmd
         result = subprocess.call(cmd, shell=True)
         if result != 0:
@@ -337,11 +337,11 @@ class ConsonanceTask(luigi.Task):
 
     def save_json(self):
         task_uuid = self.get_task_uuid()
-        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_0_x_Coordinator/fastq_gz/%s/dockstore_tool.json' % (self.tmp_dir, task_uuid))
+        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_0_x_Coordinator/tar_fastqgz/%s/dockstore_tool.json' % (self.tmp_dir, task_uuid))
 
     def output(self):
         task_uuid = self.get_task_uuid()
-        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_0_x_Coordinator/fastq_gz/%s/finished.txt' % (self.tmp_dir, task_uuid))
+        return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_0_x_Coordinator/tar_fastqgz/%s/finished.txt' % (self.tmp_dir, task_uuid))
 
 class RNASeqCoordinator(luigi.Task):
 
@@ -401,6 +401,9 @@ class RNASeqCoordinator(luigi.Task):
 #                continue
 #            if hit["_source"]["program"] != "Treehouse":
 #                continue
+            if hit["_source"]["program"] == "PROTECT_NBL":
+                continue
+
 
             for specimen in hit["_source"]["specimen"]:
                print("Next sample of %d samples:" % len(specimen["samples"]))
@@ -498,15 +501,13 @@ class RNASeqCoordinator(luigi.Task):
                                     paired_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
                                     paired_bundle_uuids.append(analysis["bundle_uuid"])
                                     parent_uuids[sample["sample_uuid"]] = True
-#                                elif (file["file_type"] == "fastq.tar"):
+                                elif (file["file_type"] == "fastq.tar"):
 #                                if (file["file_type"] == "fastq.tar"):
-
-
-#                                    print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
-#                                    tar_files.append(file["file_path"])
-#                                    tar_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
-#                                    tar_bundle_uuids.append(analysis["bundle_uuid"])
-#                                    parent_uuids[sample["sample_uuid"]] = True
+                                    print "adding %s of file type %s to files list" % (file["file_path"], file["file_type"])
+                                    tar_files.append(file["file_path"])
+                                    tar_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
+                                    tar_bundle_uuids.append(analysis["bundle_uuid"])
+                                    parent_uuids[sample["sample_uuid"]] = True
 
                             if len(listOfJobs) < int(self.max_jobs) and (len(paired_files) + len(tar_files) + len(single_files)) > 0:
 
