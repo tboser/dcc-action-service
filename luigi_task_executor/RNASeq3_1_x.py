@@ -301,6 +301,9 @@ class ConsonanceTask(luigi.Task):
 
         print(dockstore_json_str, file=p)
         p.close()
+    
+        # write the parameterized JSON for input to Consonance
+        # to a local file since Consonance cannot read files on s3
         print(dockstore_json_str, file=p_local)
         p_local.close()
 
@@ -342,6 +345,10 @@ class ConsonanceTask(luigi.Task):
             print("TEST MODE: Consonance command would be:"+ ' '.join(cmd))
             meta_data["consonance_job_uuid"] = 'no consonance id in test mode'
 
+        #remove the local parameterized JSON file that
+        #was created for the Consonance call
+        #since the Consonance call is finished
+#        self.save_dockstore_json_local().remove()
 
         #convert the meta data to a string and
         #save the donor metadata for the sample being processed to the touch
@@ -358,6 +365,7 @@ class ConsonanceTask(luigi.Task):
 #            result = subprocess.call(cmd, shell=True)
 #            if result == 0:
 #                print "CLEANUP SUCCESSFUL"
+
          # NOW MAke a final report
         f = self.output().open('w')
         # TODO: could print report on what was successful and what failed?  Also, provide enough details like donor ID etc
