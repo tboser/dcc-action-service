@@ -64,7 +64,7 @@ class ConsonanceTask(luigi.Task):
     tmp_dir = luigi.Parameter(default='/datastore')
 
     submitter_sample_id = luigi.Parameter(default='must input submitter sample id')
-    meta_data = luigi.Parameter(default="must input metadata")
+    meta_data_json = luigi.Parameter(default="must input metadata")
     touch_file_path = luigi.Parameter(default='must input touch file path')
 
     #Consonance will not be called in test mode
@@ -79,11 +79,14 @@ class ConsonanceTask(luigi.Task):
 
 #        print "** MAKE TEMP DIR **"
         # create a unique temp dir
-#        cmd = '''mkdir -p %s/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/''' % (self.tmp_dir, task_uuid)
-#        print cmd
-#        result = subprocess.call(cmd, shell=True)
-#        if result != 0:
-#            print "PROBLEMS MAKING DIR!!"
+        cmd = '''mkdir -p /datastore/%s''' % (self.touch_file_path)
+        print(cmd)
+        result = subprocess.call(cmd, shell=True)
+        if result != 0:
+            print("PROBLEMS MAKING DIR!!")
+
+        #convert the meta data to a python data structure
+        meta_data = json.loads(self.meta_data_json)
 
         print("** MAKE JSON FOR WORKER **")
         # create a json for RNA-Seq which will be executed by the dockstore-tool-running-dockstore-tool and passed as base64encoded
@@ -277,6 +280,7 @@ class ConsonanceTask(luigi.Task):
         print("parent uuids:%s" % parent_uuids)
 
         p = self.save_dockstore_json().open('w')
+        p_local = self.save_dockstore_json_local().open('w')
 
         dockstore_json_str = '''{
             "json_encoded": "%s",
@@ -297,9 +301,12 @@ class ConsonanceTask(luigi.Task):
 
         print(dockstore_json_str, file=p)
         p.close()
+        print(dockstore_json_str, file=p_local)
+        p_local.close()
 
         # execute consonance run, parse the job UUID
-        cmd = ["consonance", "run", "--image-descriptor", self.image_descriptor, "--flavour", "c4.8xlarge", "--run-descriptor", self.save_dockstore_json().path]
+#        cmd = ["consonance", "run", "--image-descriptor", self.image_descriptor, "--flavour", "c4.8xlarge", "--run-descriptor", self.save_dockstore_json().path]
+        cmd = ["consonance", "run", "--image-descriptor", self.image_descriptor, "--flavour", "c4.8xlarge", "--run-descriptor", self.save_dockstore_json_local().path]
 
         if self.test_mode == False:
             print("** SUBMITTING TO CONSONANCE **")
@@ -328,17 +335,18 @@ class ConsonanceTask(luigi.Task):
             #get consonance job uuid from output of consonance command
             consonance_output = json.loads(consonance_output_json)            
             if "job_uuid" in consonance_output:
-                self.meta_data["consonance_job_uuid"] = consonance_output["job_uuid"]
+                meta_data["consonance_job_uuid"] = consonance_output["job_uuid"]
             else:
                 print("ERROR: COULD NOT FIND CONSONANCE JOB UUID IN CONSONANCE OUTPUT!", file=sys.stderr)
         else:
             print("TEST MODE: Consonance command would be:"+ ' '.join(cmd))
-            self.meta_data["consonance_job_uuid"] = 'no consonance id in test mode'
+            meta_data["consonance_job_uuid"] = 'no consonance id in test mode'
 
 
+        #convert the meta data to a string and
         #save the donor metadata for the sample being processed to the touch
         # file directory
-        meta_data_json = json.dumps(self.meta_data)
+        meta_data_json = json.dumps(meta_data)
         m = self.save_metadata_json().open('w')
         print(meta_data_json, file=m)
         m.close()
@@ -361,19 +369,26 @@ class ConsonanceTask(luigi.Task):
         #task_uuid = self.get_task_uuid()
         #return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/metadata.json' % (self.tmp_dir, task_uuid))
         #return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/metadata.json' % ( task_uuid))
-        return S3Target('%s/%s_meta_data.json' % (self.touch_file_path, self.submitter_sample_id ))
+        return S3Target('s3://%s/%s_meta_data.json' % (self.touch_file_path, self.submitter_sample_id ))
+
+    def save_dockstore_json_local(self):
+        #task_uuid = self.get_task_uuid()
+        #luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/dockstore_tool.json' % (self.tmp_dir, task_uuid))
+        #return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/dockstore_tool.json' % ( task_uuid))
+        #return S3Target('%s/%s_dockstore_tool.json' % (self.touch_file_path, self.submitter_sample_id ))
+        return luigi.LocalTarget('/datastore/%s/%s_dockstore_tool.json' % (self.touch_file_path, self.submitter_sample_id ))
 
     def save_dockstore_json(self):
         #task_uuid = self.get_task_uuid()
         #luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/dockstore_tool.json' % (self.tmp_dir, task_uuid))
         #return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/dockstore_tool.json' % ( task_uuid))
-        return S3Target('%s/%s_dockstore_tool.json' % (self.touch_file_path, self.submitter_sample_id ))
+        return S3Target('s3://%s/%s_dockstore_tool.json' % (self.touch_file_path, self.submitter_sample_id ))
 
     def output(self):
         #task_uuid = self.get_task_uuid()
         #return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/finished.txt' % (self.tmp_dir, task_uuid))
         #return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/finished.txt' % ( task_uuid))
-        return S3Target('%s/%s_finished.json' % (self.touch_file_path, self.submitter_sample_id ))
+        return S3Target('s3://%s/%s_finished.json' % (self.touch_file_path, self.submitter_sample_id ))
 
 class RNASeqCoordinator(luigi.Task):
 
@@ -390,7 +405,7 @@ class RNASeqCoordinator(luigi.Task):
     process_sample_uuid = luigi.Parameter(default = "")
 
 #    touch_file_path_prefix = os.path.join("s3:/", "cgl-core-analysis-run-touch-files", "consonance-jobs", "RNASeq_3_1_x_Coordinator", "3_1_3")
-    touch_file_path_prefix = "s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/3_1_3"
+    touch_file_path_prefix = "cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/3_1_3"
 
     #Consonance will not be called in test mode
     test_mode = luigi.BooleanParameter(default = False)
@@ -472,7 +487,8 @@ class RNASeqCoordinator(luigi.Task):
                                     rna_seq_outputs = filter_analysis["workflow_outputs"] 
                                     print("rna seq workflow outputs:")
                                     print(rna_seq_outputs)
-                                    rna_seq_outputs_len = len(filter_analysis["workflow_outputs"]) 
+                                    rna_seq_outputs_len = len(filter_analysis["workflow_outputs"])
+                                    rna_seq_workflow_version = filter_analysis["workflow_version"] 
                                     print("len of rna_seq outputs is:"+str(rna_seq_outputs_len))
 
                         if ( (analysis["analysis_type"] == "sequence_upload" and \
@@ -490,12 +506,14 @@ class RNASeqCoordinator(luigi.Task):
                              (analysis["analysis_type"] == "sequence_upload" and \
                               ((hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"] == True and \
                                    (sample["sample_uuid"] in hit["_source"]["missing_items"]["normal_rna_seq_cgl_workflow_3_0_x"] or \
-                                   (sample["sample_uuid"] in hit["_source"]["present_items"]["normal_rna_seq_cgl_workflow_3_0_x"] and rna_seq_outputs_len == 0)) and \
+                                   (sample["sample_uuid"] in hit["_source"]["present_items"]["normal_rna_seq_cgl_workflow_3_0_x"] and 
+                                                                                         (rna_seq_outputs_len == 0 or rna_seq_workflow_version != "3.1.3"))) and \
                                    re.match("^Normal - ", specimen["submitter_specimen_type"]) and \
                                    re.match("^RNA-Seq$", specimen["submitter_experimental_design"])) or \
                                (hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"] == True and \
                                    (sample["sample_uuid"] in hit["_source"]["missing_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] or \
-                                   (sample["sample_uuid"] in hit["_source"]["present_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] and rna_seq_outputs_len == 0)) and \
+                                   (sample["sample_uuid"] in hit["_source"]["present_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] and 
+                                                                                         (rna_seq_outputs_len == 0 or rna_seq_workflow_version != "3.1.3"))) and \
                                    re.match("^Primary tumour - |^Recurrent tumour - |^Metastatic tumour - |^Cell line -", specimen["submitter_specimen_type"]) and \
                                    re.match("^RNA-Seq$", specimen["submitter_experimental_design"])))) ):
 
@@ -532,9 +550,9 @@ class RNASeqCoordinator(luigi.Task):
                             meta_data["workflow_name"] = "quay.io/ucsc_cgl/rnaseq-cgl-pipeline"
                             meta_data["workflow_version"] = "3.1.3"
 
-                            meta_data_json_preview = json.dumps(meta_data)
+                            meta_data_json = json.dumps(meta_data)
                             print("meta data:")
-                            print(meta_data_json_preview)
+                            print(meta_data_json)
 
 
                             #print analysis
@@ -590,7 +608,9 @@ class RNASeqCoordinator(luigi.Task):
                                  if len(tar_files) > 0 and (len(paired_files) > 0 or len(single_files) > 0):
                                      print(('\n\nWARNING: mix of tar files and fastq(.gz) files submitted for' 
                                                         ' input for one sample! This is probably an error!'), file=sys.stderr)
-                                     print('WARNING: files were\n paired {}\n tar: {}\n single:{}'.format(paired_files, tar_files, single_files), file=sys.stderr)
+                                     print('WARNING: files were\n paired {}\n tar: {}\n single:{}'.format(', '.join(map(str, paired_files)),
+                                                                                                          ', '.join(map(str, tar_files)),
+                                                                                                          ', '.join(map(str, single_files))), file=sys.stderr)
                                      print('WARNING: sample uuid:{}'.format(parent_uuids.keys()[0]), file=sys.stderr)
                                      print('WARNING: Skipping this job!\n\n', file=sys.stderr)
                                      continue
@@ -598,7 +618,8 @@ class RNASeqCoordinator(luigi.Task):
                                  elif len(paired_files) > 0 and len(single_files) > 0:
                                      print('\n\nWARNING: mix of single and paired fastq(.gz) files submitted for'
                                                     ' input for one sample! This is probably an error!', file=sys.stderr)
-                                     print('WARNING: files were\n paired {}\n single:{}'.format(paired_files,  single_files), file=sys.stderr)
+                                     print('WARNING: files were\n paired {}\n single:{}'.format(', '.join(map(str, paired_files)),
+                                                                                                ', '.join(map(str, single_files))), file=sys.stderr)
                                      print('WARNING: sample uuid:{}\n'.format(parent_uuids.keys()[0]), file=sys.stderr)
                                      print('WARNING: Skipping this job!\n\n', file=stderr)
                                      continue
@@ -606,7 +627,7 @@ class RNASeqCoordinator(luigi.Task):
                                  elif len(tar_files) > 1:
                                      print('\n\nWARNING: More than one tar file submitted for'
                                                     ' input for one sample! This is probably an error!', file=sys.stderr)
-                                     print('WARNING: files were\n tar: %s'.format(tar_files), file=sys.stderr)
+                                     print('WARNING: files were\n tar: %s'.format(', '.join(map(str, tar_files))), file=sys.stderr)
                                      print('WARNING: sample uuid:%s'.format(parent_uuids.keys()[0]), file=sys.stderr)
                                      print('WARNING: Skipping this job!\n\n', file=sys.stderr)
                                      continue 
@@ -614,13 +635,15 @@ class RNASeqCoordinator(luigi.Task):
                                  elif len(paired_files) % 2 != 0:
                                      print('\n\nWARNING: Odd number of paired files submitted for'
                                                     ' input for one sample! This is probably an error!', file=sys.stderr)
-                                     print('WARNING: files were\n paired: %s'.format(paired_files), file=sys.stderr)
+                                     print('WARNING: files were\n paired: %s'.format(', '.join(map(str, paired_files))), file=sys.stderr)
                                      print('WARNING: sample uuid:%s'.format(parent_uuids.keys()[0]), file=sys.stderr)
                                      print('WARNING: Skipping this job!\n\n', file=sys.stderr)
                                      continue 
 
                                  else:
-                                    print("will run report for {} and {} and {}".format(paired_files, tar_files, single_files), file=sys.stderr)
+                                    print("will run report for {} and {} and {}".format(', '.join(map(str, paired_files)), 
+                                                                                        ', '.join(map(str, tar_files)), 
+                                                                                        ', '.join(map(str, single_files))))
                                     print("total of {} files in this {} job; job {} of {}".format(str(len(paired_files) + (len(tar_files) + len(single_files))), 
                                                                                              hit["_source"]["program"], str(len(listOfJobs)+1), str(self.max_jobs)))
                                     listOfJobs.append(ConsonanceTask(redwood_host=self.redwood_host, redwood_token=self.redwood_token, \
@@ -629,7 +652,7 @@ class RNASeqCoordinator(luigi.Task):
                                          single_filenames=single_files, single_file_uuids = single_file_uuids, single_bundle_uuids = single_bundle_uuids, \
                                          paired_filenames=paired_files, paired_file_uuids = paired_file_uuids, paired_bundle_uuids = paired_bundle_uuids, \
                                          tar_filenames=tar_files, tar_file_uuids = tar_file_uuids, tar_bundle_uuids = tar_bundle_uuids, \
-                                         tmp_dir=self.tmp_dir, submitter_sample_id = submitter_sample_id, meta_data = meta_data, \
+                                         tmp_dir=self.tmp_dir, submitter_sample_id = submitter_sample_id, meta_data_json = meta_data_json, \
                                          touch_file_path = touch_file_path, test_mode=self.test_mode))
         print("total of {} jobs; max jobs allowed is {}\n\n".format(str(len(listOfJobs)), self.max_jobs))
 
