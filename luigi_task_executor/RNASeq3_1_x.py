@@ -30,7 +30,7 @@ class ConsonanceTask(luigi.Task):
     redwood_host = luigi.Parameter("storage.ucsc-cgl.org")
     redwood_token = luigi.Parameter("must_be_defined")
     dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.7")
-    target_tool = luigi.Parameter(default="quay.io/ucsc_cgl/rnaseq-cgl-pipeline:3.1.2")
+    target_tool = luigi.Parameter(default="quay.io/ucsc_cgl/rnaseq-cgl-pipeline:3.1.3")
     target_tool_url = luigi.Parameter(default="https://dockstore.org/containers/quay.io/ucsc_cgl/rnaseq-cgl-pipeline")
     workflow_type = luigi.Parameter(default="rna_seq_quantification")
     image_descriptor = luigi.Parameter("must be defined")
@@ -278,23 +278,6 @@ class ConsonanceTask(luigi.Task):
 
         p = self.save_dockstore_json().open('w')
 
-#        print >>p, '''{
-#            "json_encoded": "%s",
-#            "docker_uri": "%s",
-#            "dockstore_url": "%s",
-#            "redwood_token": "%s",
-#            "redwood_host": "%s",
-#            "parent_uuids": "%s",
-#            "workflow_type": "%s",
-#            "tmpdir": "%s",
-#            "vm_instance_type": "c4.8xlarge",
-#            "vm_region": "us-west-2",
-#            "vm_location": "aws",
-#            "vm_instance_cores": 36,
-#            "vm_instance_mem_gb": 60,
-#            "output_metadata_json": "/tmp/final_metadata.json"
-#        }''' % (base64_json_str, self.target_tool, self.target_tool_url, self.redwood_token, self.redwood_host, parent_uuids, self.workflow_type, self.tmp_dir )
-        
         dockstore_json_str = '''{
             "json_encoded": "%s",
             "docker_uri": "%s",
@@ -316,9 +299,7 @@ class ConsonanceTask(luigi.Task):
         p.close()
 
         # execute consonance run, parse the job UUID
-        cmd = ["consonance", "run", "--image-descriptor", self.image_descriptor, "--flavour", "c4.8xlarge", "--run-descriptor", p.path]
-        # loop to check the consonance status until finished or failed
-        #print "consonance status --job_uuid e2ad3160-74e2-4b04-984f-90aaac010db6"
+        cmd = ["consonance", "run", "--image-descriptor", self.image_descriptor, "--flavour", "c4.8xlarge", "--run-descriptor", self.save_dockstore_json().path]
 
         if self.test_mode == False:
             print("** SUBMITTING TO CONSONANCE **")
@@ -326,7 +307,7 @@ class ConsonanceTask(luigi.Task):
             print("** WAITING FOR CONSONANCE **")
 
             try:
-                output = subprocess.check_output(cmd)
+                consonance_output_json = subprocess.check_output(cmd)
             except subprocess.CalledProcessError as e:
                 #If we get here then the called command return code was non zero
                 print("\nERROR!!! CONSONANCE CALL: " + cmd + " FAILED !!!", file=sys.stderr)
@@ -337,39 +318,19 @@ class ConsonanceTask(luigi.Task):
             except Exception as e:
                 print("\nERROR!!! CONSONANCE CALL: " + cmd + " THREW AN EXCEPTION !!!", file=sys.stderr)
                 print("\nException information:" + str(e), file=sys.stderr)
-
-
-
                 #if we get here the called command threw an exception other than just
                 #returning a non zero return code, so just set the return code to 1
                 return_code = 1
                 sys.exit(return_code)
 
+            print("Consonance output is:\n\n{}\n--end consonance output---\n\n".format(consonance_output_json))
 
             #get consonance job uuid from output of consonance command
-            for line in output:
-                if 'job_uuid' in line:
-                    consonance_job_uuid = line.split()[2].strip().strip('",')
-                    print("consonance job uuid:{}".format(consonance_job_uuid))
-                    meta_data["consonance_job_uuid"]=consonance_job_uuid
-                    break;
+            consonance_output = json.loads(consonance_output_json)            
+            if "job_uuid" in consonance_output:
+                self.meta_data["consonance_job_uuid"] = consonance_output["job_uuid"]
             else:
-                meta_data["consonance_job_uuid"] = "NOT FOUND"
-                print("ERROR: COULD NOT FIND CONSONANCE JOB UUID IN CONSONANCE STDOUT!")
-
-            '''
-            try:
-                result = subprocess.call(cmd)
-            except Exception as e:
-                print "Error in Consonance call!!!:" + e.message
-
-            if result == 0:
-                print "Consonance job returned success code!"
-                self.meta_data["consonance_id"] = '????'
-            else:
-                print "ERROR: Consonance job failed!!!"
-            '''
-
+                print("ERROR: COULD NOT FIND CONSONANCE JOB UUID IN CONSONANCE OUTPUT!", file=sys.stderr)
         else:
             print("TEST MODE: Consonance command would be:"+ ' '.join(cmd))
             self.meta_data["consonance_job_uuid"] = 'no consonance id in test mode'
@@ -380,7 +341,6 @@ class ConsonanceTask(luigi.Task):
         meta_data_json = json.dumps(self.meta_data)
         m = self.save_metadata_json().open('w')
         print(meta_data_json, file=m)
-#        print >>m, meta_data_json
         m.close()
 
             
@@ -393,30 +353,9 @@ class ConsonanceTask(luigi.Task):
          # NOW MAke a final report
         f = self.output().open('w')
         # TODO: could print report on what was successful and what failed?  Also, provide enough details like donor ID etc
-#        print >>f, "Consonance task is complete"
         print("Consonance task is complete", file=f) 
         f.close()
         print("\n\n\n\n** TASK RUN DONE **")
-
-    '''
-    def get_task_uuid(self):
-        #get a unique id for this task based on the some inputs
-        #this id will not change if the inputs are the same
-        #This helps make the task idempotent; it that it
-        #always has the same task id for the same inputs
-        #TODO??? should this be based on all the inputs
-        #including the path to star, kallisto, rsem and
-        #save BAM, etc.???
-        task_uuid = uuid5(uuid.NAMESPACE_DNS,  
-                 self.target_tool + self.target_tool_url 
-                 + ''.join(map("{0}".format, self.single_filenames))  
-                 + ''.join(map("{0}".format, self.paired_filenames))
-                 + ''.join(map("{0}".format, self.tar_filenames)) 
-                 + ''.join(map("{0}".format, self.parent_uuids))  
-                 + self.workflow_type + self.save_bam + self.save_wiggle + self.disable_cutadapt)
-#        print("task uuid:%s",str(task_uuid))
-        return task_uuid
-    ''' 
 
     def save_metadata_json(self):
         #task_uuid = self.get_task_uuid()
@@ -426,7 +365,7 @@ class ConsonanceTask(luigi.Task):
 
     def save_dockstore_json(self):
         #task_uuid = self.get_task_uuid()
-        #return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/dockstore_tool.json' % (self.tmp_dir, task_uuid))
+        #luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/dockstore_tool.json' % (self.tmp_dir, task_uuid))
         #return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/dockstore_tool.json' % ( task_uuid))
         return S3Target('%s/%s_dockstore_tool.json' % (self.touch_file_path, self.submitter_sample_id ))
 
@@ -450,7 +389,8 @@ class RNASeqCoordinator(luigi.Task):
     bundle_uuid_filename_to_file_uuid = {}
     process_sample_uuid = luigi.Parameter(default = "")
 
-    touch_file_path_prefix = "s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/test_3_1/"
+#    touch_file_path_prefix = os.path.join("s3:/", "cgl-core-analysis-run-touch-files", "consonance-jobs", "RNASeq_3_1_x_Coordinator", "3_1_3")
+    touch_file_path_prefix = "s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/3_1_3"
 
     #Consonance will not be called in test mode
     test_mode = luigi.BooleanParameter(default = False)
@@ -560,6 +500,11 @@ class RNASeqCoordinator(luigi.Task):
                                    re.match("^RNA-Seq$", specimen["submitter_experimental_design"])))) ):
 
                             
+#                            touch_file_path = os.path.join(self.touch_file_path_prefix, hit["_source"]["center_name"] + "_" + hit["_source"]["program"] \
+#                                                                    + "_" + hit["_source"]["project"] + "_" + hit["_source"]["submitter_donor_id"] \
+#                                                                    + "_" + specimen["submitter_specimen_id"])
+
+
                             touch_file_path = self.touch_file_path_prefix+"/"+hit["_source"]["center_name"]+"_"+hit["_source"]["program"] \
                                                                     +"_"+hit["_source"]["project"]+"_"+hit["_source"]["submitter_donor_id"] \
                                                                     +"_"+specimen["submitter_specimen_id"]
@@ -585,7 +530,7 @@ class RNASeqCoordinator(luigi.Task):
                             meta_data["sample_uuid"] = sample["sample_uuid"]
                             meta_data["analysis_type"] = "rna_seq_quantification"
                             meta_data["workflow_name"] = "quay.io/ucsc_cgl/rnaseq-cgl-pipeline"
-                            meta_data["workflow_version"] = "3.1.2"
+                            meta_data["workflow_version"] = "3.1.3"
 
                             meta_data_json_preview = json.dumps(meta_data)
                             print("meta data:")
