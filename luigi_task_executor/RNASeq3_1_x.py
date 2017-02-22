@@ -409,8 +409,8 @@ class RNASeqCoordinator(luigi.Task):
     touch_file_path_prefix = "cgl-core-analysis-run-touch-files/consonance-jobs/Protect/1_0_1"
 
     #Consonance will not be called in test mode
-    test_mode = luigi.BooleanParameter(default = False)
-
+    #test_mode = luigi.BooleanParameter(default = False)
+    test_mode = False
 
     def requires(self):
         print("\n\n\n\n** COORDINATOR REQUIRES **")
