@@ -29,7 +29,7 @@ import boto
 class ConsonanceTask(luigi.Task):
     redwood_host = luigi.Parameter("storage.ucsc-cgl.org")
     redwood_token = luigi.Parameter("must_be_defined")
-    dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.7")
+    dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.8")
     target_tool = luigi.Parameter(default="quay.io/ucsc_cgl/rnaseq-cgl-pipeline:3.1.3")
     target_tool_url = luigi.Parameter(default="https://dockstore.org/containers/quay.io/ucsc_cgl/rnaseq-cgl-pipeline")
     workflow_type = luigi.Parameter(default="rna_seq_quantification")
@@ -39,7 +39,7 @@ class ConsonanceTask(luigi.Task):
     rsemfilename = luigi.Parameter(default="redwood://storage.ucsc-cgl.org/d0117ff1-cf53-43a0-aaab-cb15809fbb49/b850460d-23c0-57a4-9d4b-af60726476a5/rsem_ref_hg38_no_alt.tar.gz")
     kallistofilename = luigi.Parameter(default="redwood://storage.ucsc-cgl.org/d0117ff1-cf53-43a0-aaab-cb15809fbb49/c92d30f3-2731-56b1-b8e4-41d09b1bb2dc/kallisto_hg38.idx")
 
-    disable_cutadapt = luigi.Parameter(default="false")
+    disable_cutadapt = luigi.Parameter(default="true")
     save_bam = luigi.Parameter(default="true")
     save_wiggle = luigi.Parameter(default="true")
     no_clean = luigi.Parameter(default="true")
@@ -308,42 +308,34 @@ class ConsonanceTask(luigi.Task):
         p_local.close()
 
         # execute consonance run, parse the job UUID
-#        cmd = ["consonance", "run", "--image-descriptor", self.image_descriptor, "--flavour", "c4.8xlarge", "--run-descriptor", self.save_dockstore_json().path]
-        cmd = ["consonance", "run", "--image-descriptor", self.image_descriptor, "--flavour", "c4.8xlarge", "--run-descriptor", self.save_dockstore_json_local().path]
+        #cmd = ["consonance", "run", "--image-descriptor", self.image_descriptor, "--flavour", "c4.8xlarge", "--run-descriptor", self.save_dockstore_json().path]
+        #cmd = ["consonance", "run", "--image-descriptor", self.image_descriptor, "--flavour", "c4.8xlarge", "--run-descriptor", self.save_dockstore_json_local().path]
+        cmd = ["dockstore", "tool", "launch", "--entry", self.dockstore_tool_running_dockstore_tool, "--local-entry", "--json", self.save_dockstore_json_local().path]
 
         if self.test_mode == False:
-            print("** SUBMITTING TO CONSONANCE **")
+            #print("** SUBMITTING TO CONSONANCE **")
             print("executing:"+ ' '.join(cmd))
-            print("** WAITING FOR CONSONANCE **")
+            #print("** WAITING FOR CONSONANCE **")
 
             try:
-                consonance_output_json = subprocess.check_output(cmd)
+                return_code = subprocess.check_call(cmd)
             except subprocess.CalledProcessError as e:
                 #If we get here then the called command return code was non zero
-                print("\nERROR!!! CONSONANCE CALL: " + cmd + " FAILED !!!", file=sys.stderr)
+                print("\nERROR!!! DOCKSTORE CALL: " + ' '.join(cmd) + " FAILED !!!", file=sys.stderr)
                 print("\nReturn code:" + str(e.returncode), file=sys.stderr)
 
                 return_code = e.returncode
                 sys.exit(return_code)
             except Exception as e:
-                print("\nERROR!!! CONSONANCE CALL: " + cmd + " THREW AN EXCEPTION !!!", file=sys.stderr)
+                print("\nERROR!!! DOCKSTORE CALL: " + ' '.join(cmd) + " THREW AN EXCEPTION !!!", file=sys.stderr)
                 print("\nException information:" + str(e), file=sys.stderr)
                 #if we get here the called command threw an exception other than just
                 #returning a non zero return code, so just set the return code to 1
                 return_code = 1
                 sys.exit(return_code)
-
-            print("Consonance output is:\n\n{}\n--end consonance output---\n\n".format(consonance_output_json))
-
-            #get consonance job uuid from output of consonance command
-            consonance_output = json.loads(consonance_output_json)            
-            if "job_uuid" in consonance_output:
-                meta_data["consonance_job_uuid"] = consonance_output["job_uuid"]
-            else:
-                print("ERROR: COULD NOT FIND CONSONANCE JOB UUID IN CONSONANCE OUTPUT!", file=sys.stderr)
         else:
-            print("TEST MODE: Consonance command would be:"+ ' '.join(cmd))
-            meta_data["consonance_job_uuid"] = 'no consonance id in test mode'
+            print("Dockstore command would be:"+ ' '.join(cmd))
+            #meta_data["consonance_job_uuid"] = 'no consonance id in test mode'
 
         #remove the local parameterized JSON file that
         #was created for the Consonance call
@@ -369,7 +361,7 @@ class ConsonanceTask(luigi.Task):
          # NOW MAke a final report
         f = self.output().open('w')
         # TODO: could print report on what was successful and what failed?  Also, provide enough details like donor ID etc
-        print("Consonance task is complete", file=f) 
+        #print("Consonance task is complete", file=f) 
         f.close()
         print("\n\n\n\n** TASK RUN DONE **")
 
@@ -413,7 +405,7 @@ class RNASeqCoordinator(luigi.Task):
     process_sample_uuid = luigi.Parameter(default = "")
 
 #    touch_file_path_prefix = os.path.join("s3:/", "cgl-core-analysis-run-touch-files", "consonance-jobs", "RNASeq_3_1_x_Coordinator", "3_1_3")
-    touch_file_path_prefix = "cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/3_1_3"
+    touch_file_path_prefix = "cgl-core-analysis-run-touch-files/consonance-jobs/Protect/1_0_1"
 
     #Consonance will not be called in test mode
     test_mode = luigi.BooleanParameter(default = False)
