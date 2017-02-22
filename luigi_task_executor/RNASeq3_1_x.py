@@ -68,7 +68,8 @@ class ConsonanceTask(luigi.Task):
     touch_file_path = luigi.Parameter(default='must input touch file path')
 
     #Consonance will not be called in test mode
-    test_mode = luigi.BooleanParameter(default = False)
+    #test_mode = luigi.Parameter(default = False)
+    test_mode = False
 
 
     def run(self):
