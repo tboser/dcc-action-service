@@ -399,14 +399,14 @@ class RNASeqCoordinator(luigi.Task):
     redwood_client_path = luigi.Parameter(default='../ucsc-storage-client')
     redwood_host = luigi.Parameter(default='storage.ucsc-cgl.org')
     image_descriptor = luigi.Parameter("must be defined") 
-    dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.7")
+    dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.8")
     tmp_dir = luigi.Parameter(default='/datastore')
     max_jobs = luigi.Parameter(default='1')
     bundle_uuid_filename_to_file_uuid = {}
     process_sample_uuid = luigi.Parameter(default = "")
 
 #    touch_file_path_prefix = os.path.join("s3:/", "cgl-core-analysis-run-touch-files", "consonance-jobs", "RNASeq_3_1_x_Coordinator", "3_1_3")
-    touch_file_path_prefix = "cgl-core-analysis-run-touch-files/consonance-jobs/Protect/1_0_1"
+    touch_file_path_prefix = os.path.join("s3:/", "cgl-core-analysis-run-touch-files", "consonance-jobs" "Protect", "1_0_1")
 
     #Consonance will not be called in test mode
     #test_mode = luigi.BooleanParameter(default = False)
@@ -676,7 +676,7 @@ class RNASeqCoordinator(luigi.Task):
         ts = time.time()
         ts_str = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H:%M:%S')
         #return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/RNASeqTask-%s.txt' % (self.tmp_dir, ts_str))
-        return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/RNASeqTask-%s.txt' % (ts_str))
+        return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/Protect/RNASeqTask-%s.txt' % (ts_str))
 
     def fileToUUID(self, input, bundle_uuid):
         return self.bundle_uuid_filename_to_file_uuid[bundle_uuid+"_"+input]
