@@ -407,7 +407,7 @@ class RNASeqCoordinator(luigi.Task):
     process_sample_uuid = luigi.Parameter(default = "")
 
 #    touch_file_path_prefix = os.path.join("s3:/", "cgl-core-analysis-run-touch-files", "consonance-jobs", "RNASeq_3_1_x_Coordinator", "3_1_3")
-    touch_file_path_prefix = os.path.join("s3:/", "cgl-core-analysis-run-touch-files", "consonance-jobs" "Protect", "1_0_1")
+    touch_file_path_prefix = os.path.join("s3:/", "cgl-core-analysis-run-touch-files", "consonance-jobs", "Protect", "1_0_1")
 
     #Consonance will not be called in test mode
     #test_mode = luigi.BooleanParameter(default = False)
