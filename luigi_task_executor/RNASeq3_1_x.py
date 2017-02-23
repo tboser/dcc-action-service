@@ -319,6 +319,7 @@ class ConsonanceTask(luigi.Task):
             #print("** WAITING FOR CONSONANCE **")
 
             try:
+                pass
                 #return_code = subprocess.check_call(cmd)
             except subprocess.CalledProcessError as e:
                 #If we get here then the called command return code was non zero
