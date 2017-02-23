@@ -69,7 +69,7 @@ class ConsonanceTask(luigi.Task):
 
     #Consonance will not be called in test mode
     #test_mode = luigi.BooleanParameter(default = False)
-    test_mode = False
+    test_mode = True
 
 
     def run(self):
@@ -319,7 +319,7 @@ class ConsonanceTask(luigi.Task):
             #print("** WAITING FOR CONSONANCE **")
 
             try:
-                return_code = subprocess.check_call(cmd)
+                #return_code = subprocess.check_call(cmd)
             except subprocess.CalledProcessError as e:
                 #If we get here then the called command return code was non zero
                 print("\nERROR!!! DOCKSTORE CALL: " + ' '.join(cmd) + " FAILED !!!", file=sys.stderr)
@@ -410,7 +410,7 @@ class RNASeqCoordinator(luigi.Task):
 
     #Consonance will not be called in test mode
     #test_mode = luigi.BooleanParameter(default = False)
-    test_mode = False
+    test_mode = True
 
     def requires(self):
         print("\n\n\n\n** COORDINATOR REQUIRES **")
