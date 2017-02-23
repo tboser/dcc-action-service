@@ -68,7 +68,7 @@ class ConsonanceTask(luigi.Task):
     touch_file_path = luigi.Parameter(default='must input touch file path')
 
     #Consonance will not be called in test mode
-    test_mode = luigi.Parameter(default = False)
+    test_mode = luigi.BooleanParameter(default = False)
     test_mode = False
 
 
@@ -409,7 +409,7 @@ class RNASeqCoordinator(luigi.Task):
     touch_file_path_prefix = os.path.join("s3:/", "cgl-core-analysis-run-touch-files", "consonance-jobs" "Protect", "1_0_1")
 
     #Consonance will not be called in test mode
-    #test_mode = luigi.BooleanParameter(default = False)
+    test_mode = luigi.BooleanParameter(default = False)
     test_mode = False
 
     def requires(self):
