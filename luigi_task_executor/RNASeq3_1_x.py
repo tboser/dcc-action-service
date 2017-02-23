@@ -68,7 +68,7 @@ class ConsonanceTask(luigi.Task):
     touch_file_path = luigi.Parameter(default='must input touch file path')
 
     #Consonance will not be called in test mode
-    test_mode = luigi.BooleanParameter(default = False)
+    #test_mode = luigi.BooleanParameter(default = False)
     test_mode = False
 
 
@@ -409,7 +409,7 @@ class RNASeqCoordinator(luigi.Task):
     touch_file_path_prefix = os.path.join("s3:/", "cgl-core-analysis-run-touch-files", "consonance-jobs" "Protect", "1_0_1")
 
     #Consonance will not be called in test mode
-    test_mode = luigi.BooleanParameter(default = False)
+    #test_mode = luigi.BooleanParameter(default = False)
     test_mode = False
 
     def requires(self):
@@ -654,7 +654,7 @@ class RNASeqCoordinator(luigi.Task):
                                          paired_filenames=paired_files, paired_file_uuids = paired_file_uuids, paired_bundle_uuids = paired_bundle_uuids, \
                                          tar_filenames=tar_files, tar_file_uuids = tar_file_uuids, tar_bundle_uuids = tar_bundle_uuids, \
                                          tmp_dir=self.tmp_dir, submitter_sample_id = submitter_sample_id, meta_data_json = meta_data_json, \
-                                         touch_file_path = touch_file_path, test_mode=self.test_mode))
+                                         touch_file_path = touch_file_path))
         print("total of {} jobs; max jobs allowed is {}\n\n".format(str(len(listOfJobs)), self.max_jobs))
 
         # these jobs are yielded to
