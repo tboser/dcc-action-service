@@ -69,6 +69,7 @@ class ConsonanceTask(luigi.Task):
 
     #Consonance will not be called in test mode
     test_mode = luigi.BooleanParameter(default = False)
+    test_mode_json_path = luigi.Parameter(default = "")
 
 
     def run(self):
@@ -306,12 +307,13 @@ class ConsonanceTask(luigi.Task):
         p_local.close()
 
         # execute consonance run, parse the job UUID
-        cmd = ["dockstore", "tool", "launch", "--entry", self.dockstore_tool_running_dockstore_tool, "--local-entry", "--json", self.save_dockstore_json_local().path]
 
         if self.test_mode == False:
             print("** SUBMITTING TO DOCKSTORE **")
             print("executing:"+ ' '.join(cmd))
             print("** WAITING FOR DOCKSTORE **")
+
+            cmd = ["dockstore", "tool", "launch", "--entry", self.dockstore_tool_running_dockstore_tool, "--local-entry", "--json", self.save_dockstore_json_local().path]
 
             try:
                 pass
@@ -331,16 +333,24 @@ class ConsonanceTask(luigi.Task):
                 return_code = 1
                 sys.exit(return_code)
 
-            print("Dockstore output is:\n\n{}\n--end consonance output---\n\n".format(consonance_output_json))
+            #print("Dockstore output is:\n\n{}\n--end consonance output---\n\n".format(consonance_output_json))
 
             #get consonance job uuid from output of consonance command
-            consonance_output = json.loads(consonance_output_json)            
-            if "job_uuid" in consonance_output:
-                meta_data["consonance_job_uuid"] = consonance_output["job_uuid"]
+            #consonance_output = json.loads(consonance_output_json)            
+            #if "job_uuid" in consonance_output:
+            #    meta_data["consonance_job_uuid"] = consonance_output["job_uuid"]
             else:
                 print("ERROR: COULD NOT FIND CONSONANCE JOB UUID IN CONSONANCE OUTPUT!", file=sys.stderr)
         else:
-            print("TEST MODE: Dockstore command would be:"+ ' '.join(cmd))
+            cmd = ["dockstore", "tool", "launch", "--entry", self.dockstore_tool_running_dockstore_tool, "--local-entry", "--json", self.test_mode_json_path]
+            if self.test_mode_json_path:
+                print("EXECUTING TEST DOCKSTORE COMMAND:" + ' '.join(cmd))
+                try:
+                    subprocess.check_call(cmd)
+                except Exception as e:
+                    print("DOCKSTORE THREW EXCEPTION: {}".format(e))
+            else:
+                print("TEST MODE: Dockstore command would be:"+ ' '.join(cmd))
             #meta_data["consonance_job_uuid"] = 'no consonance id in test mode'
 
         #remove the local parameterized JSON file that
@@ -415,6 +425,7 @@ class RNASeqCoordinator(luigi.Task):
 
     #Consonance will not be called in test mode
     test_mode = luigi.BooleanParameter(default = False)
+    test_mode_json_path = luigi.Parameter(default = "")
 
 
     def requires(self):
@@ -659,7 +670,7 @@ class RNASeqCoordinator(luigi.Task):
                                          paired_filenames=paired_files, paired_file_uuids = paired_file_uuids, paired_bundle_uuids = paired_bundle_uuids, \
                                          tar_filenames=tar_files, tar_file_uuids = tar_file_uuids, tar_bundle_uuids = tar_bundle_uuids, \
                                          tmp_dir=self.tmp_dir, submitter_sample_id = submitter_sample_id, meta_data_json = meta_data_json, \
-                                         touch_file_path = touch_file_path, test_mode=self.test_mode))
+                                         touch_file_path = touch_file_path, test_mode=self.test_mode, test_mode_json_path=self.test_mode_json_path))
         print("total of {} jobs; max jobs allowed is {}\n\n".format(str(len(listOfJobs)), self.max_jobs))
 
         # these jobs are yielded to
