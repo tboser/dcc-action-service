@@ -461,15 +461,15 @@ class RNASeqCoordinator(luigi.Task):
                 continue
 
             for specimen in hit["_source"]["specimen"]:
-               print("Next sample of %d samples:" % len(specimen["samples"]))
-               for sample in specimen["samples"]:
-                   print("Next analysis of %d analysis:" % len(sample["analysis"]))
-                   #if a particular sample uuid is requested for processing and
-                   #the current sample uuid does not match go on to the next sample
-                   if self.process_sample_uuid and (self.process_sample_uuid != sample["sample_uuid"]):
-            continue
+                print("Next sample of %d samples:" % len(specimen["samples"]))
+                for sample in specimen["samples"]:
+                    print("Next analysis of %d analysis:" % len(sample["analysis"]))
+                    #if a particular sample uuid is requested for processing and
+                    #the current sample uuid does not match go on to the next sample
+                    if self.process_sample_uuid and (self.process_sample_uuid != sample["sample_uuid"]):
+                        continue
 
-                   for analysis in sample["analysis"]:
+                    for analysis in sample["analysis"]:
                         print("\nMetadata:submitter specimen id:" + specimen["submitter_specimen_id"]
                                     +" submitter sample id:" + sample["submitter_sample_id"] +" sample uuid:" 
                                     + sample["sample_uuid"] + " analysis type:" + analysis["analysis_type"]) 
