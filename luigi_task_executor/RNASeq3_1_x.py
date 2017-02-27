@@ -29,7 +29,7 @@ import boto
 class ConsonanceTask(luigi.Task):
     redwood_host = luigi.Parameter("storage.ucsc-cgl.org")
     redwood_token = luigi.Parameter("must_be_defined")
-    dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.7")
+    dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.8")
     target_tool = luigi.Parameter(default="quay.io/ucsc_cgl/rnaseq-cgl-pipeline:3.1.3")
     target_tool_url = luigi.Parameter(default="https://dockstore.org/containers/quay.io/ucsc_cgl/rnaseq-cgl-pipeline")
     workflow_type = luigi.Parameter(default="rna_seq_quantification")
@@ -406,7 +406,7 @@ class RNASeqCoordinator(luigi.Task):
     redwood_client_path = luigi.Parameter(default='../ucsc-storage-client')
     redwood_host = luigi.Parameter(default='storage.ucsc-cgl.org')
     image_descriptor = luigi.Parameter("must be defined") 
-    dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.7")
+    dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.8")
     tmp_dir = luigi.Parameter(default='/datastore')
     max_jobs = luigi.Parameter(default='1')
     bundle_uuid_filename_to_file_uuid = {}
@@ -461,6 +461,10 @@ class RNASeqCoordinator(luigi.Task):
 #                continue
             if hit["_source"]["program"] == "PROTECT_NBL":
                 continue
+
+            if hit["_source"]["project"] != "QC":
+                continue
+
 
             for specimen in hit["_source"]["specimen"]:
                print("Next sample of %d samples:" % len(specimen["samples"]))
