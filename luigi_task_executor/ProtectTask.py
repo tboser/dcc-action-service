@@ -30,41 +30,64 @@ class DockstoreTask(luigi.Task):
 
     # TODO : update to reflect protect pipeline parameters.
 
+    json_dict = {}
+
     redwood_host = luigi.Parameter("storage.ucsc-cgl.org")
     redwood_token = luigi.Parameter("must_be_defined")
     dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.8")
     target_tool = luigi.Parameter(default="quay.io/ucsc_cgl/protect:2.3.0--1.12.3")
     target_tool_url = luigi.Parameter(default="https://dockstore.org/containers/quay.io/ucsc_cgl/protect")
-    workflow_type = luigi.Parameter(default="protect")
+    workflow_type = luigi.Parameter(default="protect") #does this need to be an argument?
     image_descriptor = luigi.Parameter("must be defined")
  
-    starfilename = luigi.Parameter(default="redwood://storage.ucsc-cgl.org/d0117ff1-cf53-43a0-aaab-cb15809fbb49/ca79c317-e410-591f-b802-3a0be6b658b7/starIndex_hg38_no_alt.tar.gz")
-    rsemfilename = luigi.Parameter(default="redwood://storage.ucsc-cgl.org/d0117ff1-cf53-43a0-aaab-cb15809fbb49/b850460d-23c0-57a4-9d4b-af60726476a5/rsem_ref_hg38_no_alt.tar.gz")
-    kallistofilename = luigi.Parameter(default="redwood://storage.ucsc-cgl.org/d0117ff1-cf53-43a0-aaab-cb15809fbb49/c92d30f3-2731-56b1-b8e4-41d09b1bb2dc/kallisto_hg38.idx")
+    genome_fasta = luigi.Parameter(default="")
+    genome_fai = luigi.Parameter(default="")
+    genome_dict = luigi.Parameter(default="")
+    cosmic_vcf = luigi.Parameter(default="")
+    cosmic_idx = luigi.Parameter(default="")
+    dbsnp_vcf = luigi.Parameter(default="")
+    dbsnp_idx = luigi.Parameter(default="")
+    dbsnp_tbi = luigi.Parameter(default="")
+    strelka_config = luigi.Parameter(default="")
+    snpeff = luigi.Parameter(default="")
+    transgene = luigi.Parameter(default="")
+    phlat = luigi.Parameter(default="")
+    mhci = luigi.Parameter(default="")
+    mhcii = luigi.Parameter(default="")
+    mhc_pathway_assessment = luigi.Parameter(default="")
 
-    disable_cutadapt = luigi.Parameter(default="true")
-    save_bam = luigi.Parameter(default="true")
-    save_wiggle = luigi.Parameter(default="true")
-    no_clean = luigi.Parameter(default="true")
-    resume = luigi.Parameter(default="")
-    cores = luigi.Parameter(default=36)
-    bamqc = luigi.Parameter(default="true")
+    tumor_dna = luigi.Parameter(default="")
+    if tumor_dna:
+        json_dict["tumor_dna"] = {"class" : "File", "path" : tumor_dna}
+    tumor_rna = luigi.Parameter(default="")
+    if tumor_rna:
+        json_dict["tumor_rna"] = {"class" : "File", "path" : tumor_rna}
+    normal_dna = luigi.Parameter(default="")
+    if normal_dna:
+        json_dict["normal_dna"] = {"class" : "File", "path" : normal_dna}
+    tumor_dna2 = luigi.Parameter(default="")
+    if tumor_dna2:
+        json_dict["tumor_dna2"] = {"class" : "File", "path" : tumor_dna2}
+    tumor_rna2 = luigi.Parameter(default="")
+    if tumor_rna2:
+        json_dict["tumor_rna2"] = {"class" : "File", "path" : tumor_rna2}
+    normal_dna2 = luigi.Parameter(default="")
+    if normal_dna2:
+        json_dict["normal_dna2"] = {"class" : "File", "path" : normal_dna2}
 
-    paired_filenames = luigi.ListParameter(default=["must input sample files"])
-    paired_file_uuids = luigi.ListParameter(default=["uuid"])
-    paired_bundle_uuids = luigi.ListParameter(default=["bundle_uuid"])
+    star_path = luigi.Parameter(default="")
+    if star_path:
+        json_dict["star_path"] = {"class" : "File", "path" : star_path}
+    bwa_path = luigi.Parameter(default="")
+    if bwa_path:
+        json_dict["bwa_path"] = {"class" : "File", "path" : bwa_path}
+    rsem_path = luigi.Parameter(default="")
+    if rsem_path:
+        json_dict["rsem_path"] = {"class" : "File", "path" : rsem_path}
 
-    single_filenames = luigi.ListParameter(default=["must input sample files"])
-    single_file_uuids = luigi.ListParameter(default=["uuid"])
-    single_bundle_uuids = luigi.ListParameter(default=["bundle_uuid"])
-
-    tar_filenames = luigi.ListParameter(default=["must input sample files"])
-    tar_file_uuids = luigi.ListParameter(default=["uuid"])
-    tar_bundle_uuids = luigi.ListParameter(default=["bundle_uuid"])
-
-    parent_uuids = luigi.ListParameter(default=["parent_uuid"])
-
-    tmp_dir = luigi.Parameter(default='/datastore')
+    tmp_dir = luigi.Parameter(default='/datastore') #equivalent of work mount
+    sse_key = luigi.Parameter(default="")
+    sse_key_is_master = luigi.Parameter(default="False")
 
     submitter_sample_id = luigi.Parameter(default='must input submitter sample id')
     meta_data_json = luigi.Parameter(default="must input metadata")
@@ -83,11 +106,11 @@ class DockstoreTask(luigi.Task):
 
 #        print "** MAKE TEMP DIR **"
         # create a unique temp dir
-        cmd = '''mkdir -p /datastore/%s''' % (self.touch_file_path)
+        cmd = '''mkdir -p /datastore/%s''' % (self.touch_file_path) #TODO - why is datastore hard-coded?
         print(cmd)
         result = subprocess.call(cmd, shell=True)
         if result != 0:
-            print("PROBLEMS MAKING DIR!!")
+            print("Unable to access work mount!!")
 
         #convert the meta data to a python data structure
         meta_data = json.loads(self.meta_data_json)
@@ -97,183 +120,13 @@ class DockstoreTask(luigi.Task):
         # will need to encode the JSON above in this: https://docs.python.org/2/library/base64.html
         # see http://luigi.readthedocs.io/en/stable/api/luigi.parameter.html?highlight=luigi.parameter
         # TODO: this is tied to the requirements of the tool being targeted
-        json_str = '''
-{
-'''
-        if len(self.paired_filenames) > 0:
-            json_str += '''
-"sample-paired": [
-        '''
-            i = 0
-            while i<len(self.paired_filenames):
-                # append file information
-                json_str += '''
-            {
-              "class": "File",
-              "path": "redwood://%s/%s/%s/%s"
-            }''' % (self.redwood_host, self.paired_bundle_uuids[i], self.paired_file_uuids[i], self.paired_filenames[i])
-                if i < len(self.paired_filenames) - 1:
-                   json_str += ","
-                i += 1
-            json_str += '''
-  ],
-            '''
 
-        if len(self.single_filenames) > 0:
-            json_str += '''
-"sample-single": [
-        '''
-            i = 0
-            while i<len(self.single_filenames):
-                # append file information
-                json_str += '''
-            {
-               "class": "File",
-               "path": "redwood://%s/%s/%s/%s"
-            }''' % (self.redwood_host, self.single_bundle_uuids[i], self.single_file_uuids[i], self.single_filenames[i])
-                if i < len(self.single_filenames) - 1:
-                    json_str += ","
-                i += 1
-            json_str += '''
-  ],
-            '''
-
-        if len(self.tar_filenames) > 0:
-            json_str += '''
-"sample-tar": [
-        '''
-            i = 0
-            while i<len(self.tar_filenames):
-                # append file information
-                json_str += '''
-            {
-              "class": "File",
-              "path": "redwood://%s/%s/%s/%s"
-            }''' % (self.redwood_host, self.tar_bundle_uuids[i], self.tar_file_uuids[i], self.tar_filenames[i])
-                if i < len(self.tar_filenames) - 1:
-                    json_str += ","
-                i += 1
-            json_str += '''
-  ],
-            '''
-
-
-
-        json_str += '''
-"rsem":
-  {
-    "class": "File",
-    "path": "%s"
-  },
-            ''' %  (self.rsemfilename)
-
-        json_str += '''
-"star":
-  {
-    "class": "File",
-    "path": "%s"
-  },
-            ''' % (self.starfilename)
-
-
-        json_str += '''
-"kallisto":
-  {
-    "class": "File",
-    "path": "%s"
-  },
-            ''' % (self.kallistofilename)
-
-        json_str += '''
-"save-wiggle": %s,
-''' % self.save_wiggle
-
-        json_str += '''
-"no-clean": %s,
-''' % self.no_clean
-
-        json_str += '''
-"save-bam": %s,
-''' % self.save_bam
-
-        json_str += '''
-"disable-cutadapt": %s,
-''' % self.disable_cutadapt
-
-        json_str += '''
-"resume": "%s",
-''' % self.resume
-
-        json_str += '''
-"cores": %d,
-''' % self.cores
-
-        json_str += '''
-"work-mount": "%s",
- ''' % self.tmp_dir
-
-        json_str += '''
-"bamqc": %s,
-''' % self.bamqc
-
-        json_str += '''
-"output-basename": "%s",
-''' % self.submitter_sample_id
-
-        json_str += '''
-"output_files": [
-        '''
-        new_filename = self.submitter_sample_id + '.tar.gz'
-        json_str += '''
-    {
-      "class": "File",
-      "path": "/tmp/%s"
-    }''' % (new_filename)
- 
-
-        json_str += '''
-  ]'''
-
-
-        # if the user wants to save the wiggle output file
-        if self.save_wiggle == 'true':
-            json_str += ''',
-"wiggle_files": [
-        '''
-            new_filename = self.submitter_sample_id + '.wiggle.bg'
-            json_str += '''
-    {
-      "class": "File",
-      "path": "/tmp/%s"
-    }''' % (new_filename)
- 
-            json_str += '''
-  ]'''
-
-        # if the user wants to save the BAM output file
-        if self.save_bam == 'true':
-            json_str += ''',
-"bam_files": [
-        '''
-            new_filename = self.submitter_sample_id + '.sortedByCoord.md.bam'
-            json_str += '''
-    {
-      "class": "File",
-      "path": "/tmp/%s"
-    }''' % (new_filename)
- 
-            json_str += '''
-  ]'''
-
-
-        json_str += '''
-}
-'''
-
+        json_str = json.dumps(self.json_dict)
         print("THE JSON: "+json_str)
         # now make base64 encoded version
         base64_json_str = base64.urlsafe_b64encode(json_str)
         print("** MAKE JSON FOR DOCKSTORE TOOL WRAPPER **")
+
         # create a json for dockstoreRunningDockstoreTool, embed the RNA-Seq JSON as a param
 # below used to be a list of parent UUIDs; which is correct????
 #            "parent_uuids": "[%s]",
@@ -411,7 +264,7 @@ class DockstoreTask(luigi.Task):
 
 class ProtectCoordinator(luigi.Task):
 
-    #TODO : check parameters required for protect pipeline.
+    #TODO : check parameters required for protect pipeline. (looks ok)
 
     es_index_host = luigi.Parameter(default='localhost')
     es_index_port = luigi.Parameter(default='9200')
@@ -699,7 +552,7 @@ class ProtectCoordinator(luigi.Task):
         ts = time.time()
         ts_str = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H:%M:%S')
         #return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/RNASeqTask-%s.txt' % (self.tmp_dir, ts_str))
-        return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/Proect/ProtectTask-%s.txt' % (ts_str))
+        return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/Protect/ProtectTask-%s.txt' % (ts_str))
 
     def fileToUUID(self, input, bundle_uuid):
         return self.bundle_uuid_filename_to_file_uuid[bundle_uuid+"_"+input]

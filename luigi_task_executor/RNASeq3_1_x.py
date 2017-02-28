@@ -218,52 +218,6 @@ class ConsonanceTask(luigi.Task):
 ''' % self.submitter_sample_id
 
         json_str += '''
-"output_files": [
-        '''
-        new_filename = self.submitter_sample_id + '.tar.gz'
-        json_str += '''
-    {
-      "class": "File",
-      "path": "/tmp/%s"
-    }''' % (new_filename)
- 
-
-        json_str += '''
-  ]'''
-
-
-        # if the user wants to save the wiggle output file
-        if self.save_wiggle == 'true':
-            json_str += ''',
-"wiggle_files": [
-        '''
-            new_filename = self.submitter_sample_id + '.wiggle.bg'
-            json_str += '''
-    {
-      "class": "File",
-      "path": "/tmp/%s"
-    }''' % (new_filename)
- 
-            json_str += '''
-  ]'''
-
-        # if the user wants to save the BAM output file
-        if self.save_bam == 'true':
-            json_str += ''',
-"bam_files": [
-        '''
-            new_filename = self.submitter_sample_id + '.sortedByCoord.md.bam'
-            json_str += '''
-    {
-      "class": "File",
-      "path": "/tmp/%s"
-    }''' % (new_filename)
- 
-            json_str += '''
-  ]'''
-
-
-        json_str += '''
 }
 '''
 
