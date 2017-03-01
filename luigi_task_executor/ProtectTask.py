@@ -315,7 +315,7 @@ class ProtectCoordinator(luigi.Task):
         # curl -XPOST http://localhost:9200/analysis_index/_search?pretty -d @jqueryflag_alignment_qc
 
         # TODO: modify es search to look for protect jobs instead of rna seq. Sams with rest of loops.
-        if !self.test_mode:
+        if not self.test_mode:
             res = es.search(index="analysis_index", body={"query" : {"bool" : {"should" : [{"term" : { "flags.normal_rna_seq_cgl_workflow_3_0_x" : "false"}},{"term" : {"flags.tumor_rna_seq_cgl_workflow_3_0_x" : "false" }}],"minimum_should_match" : 1 }}}, size=5000)
 
             listOfJobs = []
