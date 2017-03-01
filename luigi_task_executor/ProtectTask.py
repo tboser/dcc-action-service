@@ -315,222 +315,232 @@ class ProtectCoordinator(luigi.Task):
         # curl -XPOST http://localhost:9200/analysis_index/_search?pretty -d @jqueryflag_alignment_qc
 
         # TODO: modify es search to look for protect jobs instead of rna seq. Sams with rest of loops.
-        res = es.search(index="analysis_index", body={"query" : {"bool" : {"should" : [{"term" : { "flags.normal_rna_seq_cgl_workflow_3_0_x" : "false"}},{"term" : {"flags.tumor_rna_seq_cgl_workflow_3_0_x" : "false" }}],"minimum_should_match" : 1 }}}, size=5000)
+        if !self.test_mode:
+            res = es.search(index="analysis_index", body={"query" : {"bool" : {"should" : [{"term" : { "flags.normal_rna_seq_cgl_workflow_3_0_x" : "false"}},{"term" : {"flags.tumor_rna_seq_cgl_workflow_3_0_x" : "false" }}],"minimum_should_match" : 1 }}}, size=5000)
 
-        listOfJobs = []
+            listOfJobs = []
 
-        print("Got %d Hits:" % res['hits']['total'])
-        for hit in res['hits']['hits']:
-            print("\n\n\nDonor uuid:%(donor_uuid)s Center Name:%(center_name)s Program:%(program)s Project:%(project)s" % hit["_source"])
-            print("Got %d specimens:" % len(hit["_source"]["specimen"]))
-            
-#            if hit["_source"]["program"] != "SU2C" or hit["_source"]["project"] != "WCDT":
-#                continue
-#            if hit["_source"]["program"] != "Treehouse":
-#                continue
-            if hit["_source"]["program"] == "PROTECT_NBL":
-                continue
+            print("Got %d Hits:" % res['hits']['total'])
+            for hit in res['hits']['hits']:
+                print("\n\n\nDonor uuid:%(donor_uuid)s Center Name:%(center_name)s Program:%(program)s Project:%(project)s" % hit["_source"])
+                print("Got %d specimens:" % len(hit["_source"]["specimen"]))
+                
+    #            if hit["_source"]["program"] != "SU2C" or hit["_source"]["project"] != "WCDT":
+    #                continue
+    #            if hit["_source"]["program"] != "Treehouse":
+    #                continue
+                if hit["_source"]["program"] == "PROTECT_NBL":
+                    continue
 
-            for specimen in hit["_source"]["specimen"]:
-                print("Next sample of %d samples:" % len(specimen["samples"]))
-                for sample in specimen["samples"]:
-                    print("Next analysis of %d analysis:" % len(sample["analysis"]))
-                    #if a particular sample uuid is requested for processing and
-                    #the current sample uuid does not match go on to the next sample
-                    if self.process_sample_uuid and (self.process_sample_uuid != sample["sample_uuid"]):
-                        continue
+                for specimen in hit["_source"]["specimen"]:
+                    print("Next sample of %d samples:" % len(specimen["samples"]))
+                    for sample in specimen["samples"]:
+                        print("Next analysis of %d analysis:" % len(sample["analysis"]))
+                        #if a particular sample uuid is requested for processing and
+                        #the current sample uuid does not match go on to the next sample
+                        if self.process_sample_uuid and (self.process_sample_uuid != sample["sample_uuid"]):
+                            continue
 
-                    for analysis in sample["analysis"]:
-                        print("\nMetadata:submitter specimen id:" + specimen["submitter_specimen_id"]
-                                    +" submitter sample id:" + sample["submitter_sample_id"] +" sample uuid:" 
-                                    + sample["sample_uuid"] + " analysis type:" + analysis["analysis_type"]) 
-                        print("normal RNA Seq quant:" + str(hit["_source"]["flags"]["normal_rna_seq_quantification"])
-                                    +" tumor RNA Seq quant:" + str(hit["_source"]["flags"]["tumor_rna_seq_quantification"]))
-                        print("Specimen type:" + specimen["submitter_specimen_type"] + " Experimental design:"
-                                    + str(specimen["submitter_experimental_design"] + " Analysis bundle uuid:"+analysis["bundle_uuid"]))
-                        print("Normal RNASeq 3.0.x flag:" + str(hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"])
-                                    +" Tumor RNASeq 3.0.x flag:" + str(hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"]))
-                        print("Normal missing items RNASeq 3.0.x:" + str(sample["sample_uuid"] in hit["_source"]["missing_items"]["normal_rna_seq_cgl_workflow_3_0_x"]))
-                        print("Tumor missing items RNASeq 3.0.x:" + str(sample["sample_uuid"] in hit["_source"]["missing_items"]["tumor_rna_seq_cgl_workflow_3_0_x"]))
-                        print("work flow outputs:")
-                        for output in analysis["workflow_outputs"]:
-                            print(output)
- 
-                        #find out if there were result files from the last RNA Seq pipeline
-                        #run on this sample 
-                        rna_seq_outputs_len = 0
-                        for filter_analysis in sample["analysis"]:
-                                if filter_analysis["analysis_type"] == "rna_seq_quantification":
-                                    rna_seq_outputs = filter_analysis["workflow_outputs"] 
-                                    print("rna seq workflow outputs:")
-                                    print(rna_seq_outputs)
-                                    rna_seq_outputs_len = len(filter_analysis["workflow_outputs"])
-                                    rna_seq_workflow_version = filter_analysis["workflow_version"] 
-                                    print("len of rna_seq outputs is:"+str(rna_seq_outputs_len))
+                        for analysis in sample["analysis"]:
+                            print("\nMetadata:submitter specimen id:" + specimen["submitter_specimen_id"]
+                                        +" submitter sample id:" + sample["submitter_sample_id"] +" sample uuid:" 
+                                        + sample["sample_uuid"] + " analysis type:" + analysis["analysis_type"]) 
+                            print("normal RNA Seq quant:" + str(hit["_source"]["flags"]["normal_rna_seq_quantification"])
+                                        +" tumor RNA Seq quant:" + str(hit["_source"]["flags"]["tumor_rna_seq_quantification"]))
+                            print("Specimen type:" + specimen["submitter_specimen_type"] + " Experimental design:"
+                                        + str(specimen["submitter_experimental_design"] + " Analysis bundle uuid:"+analysis["bundle_uuid"]))
+                            print("Normal RNASeq 3.0.x flag:" + str(hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"])
+                                        +" Tumor RNASeq 3.0.x flag:" + str(hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"]))
+                            print("Normal missing items RNASeq 3.0.x:" + str(sample["sample_uuid"] in hit["_source"]["missing_items"]["normal_rna_seq_cgl_workflow_3_0_x"]))
+                            print("Tumor missing items RNASeq 3.0.x:" + str(sample["sample_uuid"] in hit["_source"]["missing_items"]["tumor_rna_seq_cgl_workflow_3_0_x"]))
+                            print("work flow outputs:")
+                            for output in analysis["workflow_outputs"]:
+                                print(output)
+     
+                            #find out if there were result files from the last RNA Seq pipeline
+                            #run on this sample 
+                            rna_seq_outputs_len = 0
+                            for filter_analysis in sample["analysis"]:
+                                    if filter_analysis["analysis_type"] == "rna_seq_quantification":
+                                        rna_seq_outputs = filter_analysis["workflow_outputs"] 
+                                        print("rna seq workflow outputs:")
+                                        print(rna_seq_outputs)
+                                        rna_seq_outputs_len = len(filter_analysis["workflow_outputs"])
+                                        rna_seq_workflow_version = filter_analysis["workflow_version"] 
+                                        print("len of rna_seq outputs is:"+str(rna_seq_outputs_len))
 
-                        if ( (analysis["analysis_type"] == "sequence_upload" and \
-                              ((hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"] == False and \
-                                   sample["sample_uuid"] in hit["_source"]["missing_items"]["normal_rna_seq_cgl_workflow_3_0_x"] and \
-                                   re.match("^Normal - ", specimen["submitter_specimen_type"]) and \
-                                   re.match("^RNA-Seq$", specimen["submitter_experimental_design"])) or \
-                               (hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"] == False and \
-                                   sample["sample_uuid"] in hit["_source"]["missing_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] and \
-                                   re.match("^Primary tumour - |^Recurrent tumour - |^Metastatic tumour - |^Cell line -", specimen["submitter_specimen_type"]) and \
-                                   re.match("^RNA-Seq$", specimen["submitter_experimental_design"])))) or \
+                            if ( (analysis["analysis_type"] == "sequence_upload" and \
+                                  ((hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"] == False and \
+                                       sample["sample_uuid"] in hit["_source"]["missing_items"]["normal_rna_seq_cgl_workflow_3_0_x"] and \
+                                       re.match("^Normal - ", specimen["submitter_specimen_type"]) and \
+                                       re.match("^RNA-Seq$", specimen["submitter_experimental_design"])) or \
+                                   (hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"] == False and \
+                                       sample["sample_uuid"] in hit["_source"]["missing_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] and \
+                                       re.match("^Primary tumour - |^Recurrent tumour - |^Metastatic tumour - |^Cell line -", specimen["submitter_specimen_type"]) and \
+                                       re.match("^RNA-Seq$", specimen["submitter_experimental_design"])))) or \
 
-                             #if the workload has already been run but we have no
-                             #output from the workload run it again
-                             (analysis["analysis_type"] == "sequence_upload" and \
-                              ((hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"] == True and \
-                                   (sample["sample_uuid"] in hit["_source"]["missing_items"]["normal_rna_seq_cgl_workflow_3_0_x"] or \
-                                   (sample["sample_uuid"] in hit["_source"]["present_items"]["normal_rna_seq_cgl_workflow_3_0_x"] and 
-                                                                                         (rna_seq_outputs_len == 0 or rna_seq_workflow_version != "3.1.3"))) and \
-                                   re.match("^Normal - ", specimen["submitter_specimen_type"]) and \
-                                   re.match("^RNA-Seq$", specimen["submitter_experimental_design"])) or \
-                               (hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"] == True and \
-                                   (sample["sample_uuid"] in hit["_source"]["missing_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] or \
-                                   (sample["sample_uuid"] in hit["_source"]["present_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] and 
-                                                                                         (rna_seq_outputs_len == 0 or rna_seq_workflow_version != "3.1.3"))) and \
-                                   re.match("^Primary tumour - |^Recurrent tumour - |^Metastatic tumour - |^Cell line -", specimen["submitter_specimen_type"]) and \
-                                   re.match("^RNA-Seq$", specimen["submitter_experimental_design"])))) ):
+                                 #if the workload has already been run but we have no
+                                 #output from the workload run it again
+                                 (analysis["analysis_type"] == "sequence_upload" and \
+                                  ((hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"] == True and \
+                                       (sample["sample_uuid"] in hit["_source"]["missing_items"]["normal_rna_seq_cgl_workflow_3_0_x"] or \
+                                       (sample["sample_uuid"] in hit["_source"]["present_items"]["normal_rna_seq_cgl_workflow_3_0_x"] and 
+                                                                                             (rna_seq_outputs_len == 0 or rna_seq_workflow_version != "3.1.3"))) and \
+                                       re.match("^Normal - ", specimen["submitter_specimen_type"]) and \
+                                       re.match("^RNA-Seq$", specimen["submitter_experimental_design"])) or \
+                                   (hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"] == True and \
+                                       (sample["sample_uuid"] in hit["_source"]["missing_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] or \
+                                       (sample["sample_uuid"] in hit["_source"]["present_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] and 
+                                                                                             (rna_seq_outputs_len == 0 or rna_seq_workflow_version != "3.1.3"))) and \
+                                       re.match("^Primary tumour - |^Recurrent tumour - |^Metastatic tumour - |^Cell line -", specimen["submitter_specimen_type"]) and \
+                                       re.match("^RNA-Seq$", specimen["submitter_experimental_design"])))) ):
 
-                            
-#                            touch_file_path = os.path.join(self.touch_file_path_prefix, hit["_source"]["center_name"] + "_" + hit["_source"]["program"] \
-#                                                                    + "_" + hit["_source"]["project"] + "_" + hit["_source"]["submitter_donor_id"] \
-#                                                                    + "_" + specimen["submitter_specimen_id"])
-
-
-                            touch_file_path = self.touch_file_path_prefix+"/"+hit["_source"]["center_name"]+"_"+hit["_source"]["program"] \
-                                                                    +"_"+hit["_source"]["project"]+"_"+hit["_source"]["submitter_donor_id"] \
-                                                                    +"_"+specimen["submitter_specimen_id"]
-                            submitter_sample_id = sample["submitter_sample_id"]
-
-                            #This metadata will be passed to the Consonance Task and some
-                            #some of the meta data will be used in the Luigi status page for the job
-                            meta_data = {}
-                            meta_data["program"] = hit["_source"]["program"]
-                            meta_data["project"] = hit["_source"]["project"]
-                            meta_data["center_name"] = hit["_source"]["center_name"]
-                            meta_data["submitter_donor_id"] = hit["_source"]["submitter_donor_id"]
-                            meta_data["donor_uuid"] = hit["_source"]["donor_uuid"]
-                            if "submitter_donor_primary_site" in hit["_source"]:
-                                meta_data["submitter_donor_primary_site"] = hit["_source"]["submitter_donor_primary_site"]
-                            else:
-                                meta_data["submitter_donor_primary_site"] = "not provided"
-                            meta_data["submitter_specimen_id"] = specimen["submitter_specimen_id"]
-                            meta_data["specimen_uuid"] = specimen["specimen_uuid"]
-                            meta_data["submitter_specimen_type"] = specimen["submitter_specimen_type"]
-                            meta_data["submitter_experimental_design"] = specimen["submitter_experimental_design"]
-                            meta_data["submitter_sample_id"] = sample["submitter_sample_id"]
-                            meta_data["sample_uuid"] = sample["sample_uuid"]
-                            meta_data["analysis_type"] = "rna_seq_quantification"
-                            meta_data["workflow_name"] = "quay.io/ucsc_cgl/rnaseq-cgl-pipeline"
-                            meta_data["workflow_version"] = "3.1.3"
-
-                            meta_data_json = json.dumps(meta_data)
-                            print("meta data:")
-                            print(meta_data_json)
+                                
+    #                            touch_file_path = os.path.join(self.touch_file_path_prefix, hit["_source"]["center_name"] + "_" + hit["_source"]["program"] \
+    #                                                                    + "_" + hit["_source"]["project"] + "_" + hit["_source"]["submitter_donor_id"] \
+    #                                                                    + "_" + specimen["submitter_specimen_id"])
 
 
-                            #print analysis
-                            print("HIT!!!! " + analysis["analysis_type"] + " " + str(hit["_source"]["flags"]["normal_rna_seq_quantification"]) 
-                                           + " " + str(hit["_source"]["flags"]["tumor_rna_seq_quantification"]) + " " 
-                                           + specimen["submitter_specimen_type"]+" "+str(specimen["submitter_experimental_design"]))
+                                touch_file_path = self.touch_file_path_prefix+"/"+hit["_source"]["center_name"]+"_"+hit["_source"]["program"] \
+                                                                        +"_"+hit["_source"]["project"]+"_"+hit["_source"]["submitter_donor_id"] \
+                                                                        +"_"+specimen["submitter_specimen_id"]
+                                submitter_sample_id = sample["submitter_sample_id"]
+
+                                #This metadata will be passed to the Consonance Task and some
+                                #some of the meta data will be used in the Luigi status page for the job
+                                meta_data = {}
+                                meta_data["program"] = hit["_source"]["program"]
+                                meta_data["project"] = hit["_source"]["project"]
+                                meta_data["center_name"] = hit["_source"]["center_name"]
+                                meta_data["submitter_donor_id"] = hit["_source"]["submitter_donor_id"]
+                                meta_data["donor_uuid"] = hit["_source"]["donor_uuid"]
+                                if "submitter_donor_primary_site" in hit["_source"]:
+                                    meta_data["submitter_donor_primary_site"] = hit["_source"]["submitter_donor_primary_site"]
+                                else:
+                                    meta_data["submitter_donor_primary_site"] = "not provided"
+                                meta_data["submitter_specimen_id"] = specimen["submitter_specimen_id"]
+                                meta_data["specimen_uuid"] = specimen["specimen_uuid"]
+                                meta_data["submitter_specimen_type"] = specimen["submitter_specimen_type"]
+                                meta_data["submitter_experimental_design"] = specimen["submitter_experimental_design"]
+                                meta_data["submitter_sample_id"] = sample["submitter_sample_id"]
+                                meta_data["sample_uuid"] = sample["sample_uuid"]
+                                meta_data["analysis_type"] = "rna_seq_quantification"
+                                meta_data["workflow_name"] = "quay.io/ucsc_cgl/rnaseq-cgl-pipeline"
+                                meta_data["workflow_version"] = "3.1.3"
+
+                                meta_data_json = json.dumps(meta_data)
+                                print("meta data:")
+                                print(meta_data_json)
 
 
-                            paired_files = []
-                            paired_file_uuids = []
-                            paired_bundle_uuids = []
+                                #print analysis
+                                print("HIT!!!! " + analysis["analysis_type"] + " " + str(hit["_source"]["flags"]["normal_rna_seq_quantification"]) 
+                                               + " " + str(hit["_source"]["flags"]["tumor_rna_seq_quantification"]) + " " 
+                                               + specimen["submitter_specimen_type"]+" "+str(specimen["submitter_experimental_design"]))
 
-                            single_files = []
-                            single_file_uuids = []
-                            single_bundle_uuids = []
 
-                            tar_files = []
-                            tar_file_uuids = []
-                            tar_bundle_uuids = []
+                                paired_files = []
+                                paired_file_uuids = []
+                                paired_bundle_uuids = []
 
-                            parent_uuids = {}
+                                single_files = []
+                                single_file_uuids = []
+                                single_bundle_uuids = []
 
-                            for file in analysis["workflow_outputs"]:
-                                print("file type:"+file["file_type"])
-                                print("file name:"+file["file_path"])
+                                tar_files = []
+                                tar_file_uuids = []
+                                tar_bundle_uuids = []
 
-                                if (file["file_type"] == "fastq" or
-                                    file["file_type"] == "fastq.gz"):
-                                        #if there is only one sequenc upload output then this must
-                                        #be a single read sample
-                                        if( len(analysis["workflow_outputs"]) == 1): 
-                                            print("adding %s of file type %s to files list" % (file["file_path"], file["file_type"]))
-                                            single_files.append(file["file_path"])
-                                            single_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
-                                            single_bundle_uuids.append(analysis["bundle_uuid"])
-                                            parent_uuids[sample["sample_uuid"]] = True
-                                        #otherwise we must be dealing with paired reads
-                                        else: 
-                                            print("adding %s of file type %s to files list" % (file["file_path"], file["file_type"]))
-                                            paired_files.append(file["file_path"])
-                                            paired_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
-                                            paired_bundle_uuids.append(analysis["bundle_uuid"])
-                                            parent_uuids[sample["sample_uuid"]] = True
-                                elif (file["file_type"] == "fastq.tar"):
-                                    print("adding %s of file type %s to files list" % (file["file_path"], file["file_type"]))
-                                    tar_files.append(file["file_path"])
-                                    tar_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
-                                    tar_bundle_uuids.append(analysis["bundle_uuid"])
-                                    parent_uuids[sample["sample_uuid"]] = True
+                                parent_uuids = {}
 
-                            if len(listOfJobs) < int(self.max_jobs) and (len(paired_files) + len(tar_files) + len(single_files)) > 0:
+                                for file in analysis["workflow_outputs"]:
+                                    print("file type:"+file["file_type"])
+                                    print("file name:"+file["file_path"])
 
-                                 if len(tar_files) > 0 and (len(paired_files) > 0 or len(single_files) > 0):
-                                     print(('\n\nWARNING: mix of tar files and fastq(.gz) files submitted for' 
-                                                        ' input for one sample! This is probably an error!'), file=sys.stderr)
-                                     print('WARNING: files were\n paired {}\n tar: {}\n single:{}'.format(', '.join(map(str, paired_files)),
-                                                                                                          ', '.join(map(str, tar_files)),
-                                                                                                          ', '.join(map(str, single_files))), file=sys.stderr)
-                                     print('WARNING: sample uuid:{}'.format(parent_uuids.keys()[0]), file=sys.stderr)
-                                     print('WARNING: Skipping this job!\n\n', file=sys.stderr)
-                                     continue
+                                    if (file["file_type"] == "fastq" or
+                                        file["file_type"] == "fastq.gz"):
+                                            #if there is only one sequenc upload output then this must
+                                            #be a single read sample
+                                            if( len(analysis["workflow_outputs"]) == 1): 
+                                                print("adding %s of file type %s to files list" % (file["file_path"], file["file_type"]))
+                                                single_files.append(file["file_path"])
+                                                single_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
+                                                single_bundle_uuids.append(analysis["bundle_uuid"])
+                                                parent_uuids[sample["sample_uuid"]] = True
+                                            #otherwise we must be dealing with paired reads
+                                            else: 
+                                                print("adding %s of file type %s to files list" % (file["file_path"], file["file_type"]))
+                                                paired_files.append(file["file_path"])
+                                                paired_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
+                                                paired_bundle_uuids.append(analysis["bundle_uuid"])
+                                                parent_uuids[sample["sample_uuid"]] = True
+                                    elif (file["file_type"] == "fastq.tar"):
+                                        print("adding %s of file type %s to files list" % (file["file_path"], file["file_type"]))
+                                        tar_files.append(file["file_path"])
+                                        tar_file_uuids.append(self.fileToUUID(file["file_path"], analysis["bundle_uuid"]))
+                                        tar_bundle_uuids.append(analysis["bundle_uuid"])
+                                        parent_uuids[sample["sample_uuid"]] = True
 
-                                 elif len(paired_files) > 0 and len(single_files) > 0:
-                                     print('\n\nWARNING: mix of single and paired fastq(.gz) files submitted for'
-                                                    ' input for one sample! This is probably an error!', file=sys.stderr)
-                                     print('WARNING: files were\n paired {}\n single:{}'.format(', '.join(map(str, paired_files)),
-                                                                                                ', '.join(map(str, single_files))), file=sys.stderr)
-                                     print('WARNING: sample uuid:{}\n'.format(parent_uuids.keys()[0]), file=sys.stderr)
-                                     print('WARNING: Skipping this job!\n\n', file=stderr)
-                                     continue
- 
-                                 elif len(tar_files) > 1:
-                                     print('\n\nWARNING: More than one tar file submitted for'
-                                                    ' input for one sample! This is probably an error!', file=sys.stderr)
-                                     print('WARNING: files were\n tar: %s'.format(', '.join(map(str, tar_files))), file=sys.stderr)
-                                     print('WARNING: sample uuid:%s'.format(parent_uuids.keys()[0]), file=sys.stderr)
-                                     print('WARNING: Skipping this job!\n\n', file=sys.stderr)
-                                     continue 
+                                if len(listOfJobs) < int(self.max_jobs) and (len(paired_files) + len(tar_files) + len(single_files)) > 0:
 
-                                 elif len(paired_files) % 2 != 0:
-                                     print('\n\nWARNING: Odd number of paired files submitted for'
-                                                    ' input for one sample! This is probably an error!', file=sys.stderr)
-                                     print('WARNING: files were\n paired: %s'.format(', '.join(map(str, paired_files))), file=sys.stderr)
-                                     print('WARNING: sample uuid:%s'.format(parent_uuids.keys()[0]), file=sys.stderr)
-                                     print('WARNING: Skipping this job!\n\n', file=sys.stderr)
-                                     continue 
+                                     if len(tar_files) > 0 and (len(paired_files) > 0 or len(single_files) > 0):
+                                         print(('\n\nWARNING: mix of tar files and fastq(.gz) files submitted for' 
+                                                            ' input for one sample! This is probably an error!'), file=sys.stderr)
+                                         print('WARNING: files were\n paired {}\n tar: {}\n single:{}'.format(', '.join(map(str, paired_files)),
+                                                                                                              ', '.join(map(str, tar_files)),
+                                                                                                              ', '.join(map(str, single_files))), file=sys.stderr)
+                                         print('WARNING: sample uuid:{}'.format(parent_uuids.keys()[0]), file=sys.stderr)
+                                         print('WARNING: Skipping this job!\n\n', file=sys.stderr)
+                                         continue
 
-                                 else:
-                                    print("will run report for {} and {} and {}".format(', '.join(map(str, paired_files)), 
-                                                                                        ', '.join(map(str, tar_files)), 
-                                                                                        ', '.join(map(str, single_files))))
-                                    print("total of {} files in this {} job; job {} of {}".format(str(len(paired_files) + (len(tar_files) + len(single_files))), 
-                                                                                             hit["_source"]["program"], str(len(listOfJobs)+1), str(self.max_jobs)))
-                                    listOfJobs.append(DockstoreTask(redwood_host=self.redwood_host, redwood_token=self.redwood_token, \
-                                         image_descriptor=self.image_descriptor, dockstore_tool_running_dockstore_tool=self.dockstore_tool_running_dockstore_tool, \
-                                         parent_uuids = parent_uuids.keys(), \
-                                         single_filenames=single_files, single_file_uuids = single_file_uuids, single_bundle_uuids = single_bundle_uuids, \
-                                         paired_filenames=paired_files, paired_file_uuids = paired_file_uuids, paired_bundle_uuids = paired_bundle_uuids, \
-                                         tar_filenames=tar_files, tar_file_uuids = tar_file_uuids, tar_bundle_uuids = tar_bundle_uuids, \
-                                         tmp_dir=self.tmp_dir, submitter_sample_id = submitter_sample_id, meta_data_json = meta_data_json, \
-                                         touch_file_path = touch_file_path, test_mode=self.test_mode, test_mode_json_path=self.test_mode_json_path))
+                                     elif len(paired_files) > 0 and len(single_files) > 0:
+                                         print('\n\nWARNING: mix of single and paired fastq(.gz) files submitted for'
+                                                        ' input for one sample! This is probably an error!', file=sys.stderr)
+                                         print('WARNING: files were\n paired {}\n single:{}'.format(', '.join(map(str, paired_files)),
+                                                                                                    ', '.join(map(str, single_files))), file=sys.stderr)
+                                         print('WARNING: sample uuid:{}\n'.format(parent_uuids.keys()[0]), file=sys.stderr)
+                                         print('WARNING: Skipping this job!\n\n', file=stderr)
+                                         continue
+     
+                                     elif len(tar_files) > 1:
+                                         print('\n\nWARNING: More than one tar file submitted for'
+                                                        ' input for one sample! This is probably an error!', file=sys.stderr)
+                                         print('WARNING: files were\n tar: %s'.format(', '.join(map(str, tar_files))), file=sys.stderr)
+                                         print('WARNING: sample uuid:%s'.format(parent_uuids.keys()[0]), file=sys.stderr)
+                                         print('WARNING: Skipping this job!\n\n', file=sys.stderr)
+                                         continue 
+
+                                     elif len(paired_files) % 2 != 0:
+                                         print('\n\nWARNING: Odd number of paired files submitted for'
+                                                        ' input for one sample! This is probably an error!', file=sys.stderr)
+                                         print('WARNING: files were\n paired: %s'.format(', '.join(map(str, paired_files))), file=sys.stderr)
+                                         print('WARNING: sample uuid:%s'.format(parent_uuids.keys()[0]), file=sys.stderr)
+                                         print('WARNING: Skipping this job!\n\n', file=sys.stderr)
+                                         continue 
+
+                                     else:
+                                        print("will run report for {} and {} and {}".format(', '.join(map(str, paired_files)), 
+                                                                                            ', '.join(map(str, tar_files)), 
+                                                                                            ', '.join(map(str, single_files))))
+                                        print("total of {} files in this {} job; job {} of {}".format(str(len(paired_files) + (len(tar_files) + len(single_files))), 
+                                                                                                 hit["_source"]["program"], str(len(listOfJobs)+1), str(self.max_jobs)))
+                                        listOfJobs.append(DockstoreTask(redwood_host=self.redwood_host, redwood_token=self.redwood_token, \
+                                             image_descriptor=self.image_descriptor, dockstore_tool_running_dockstore_tool=self.dockstore_tool_running_dockstore_tool, \
+                                             parent_uuids = parent_uuids.keys(), \
+                                             single_filenames=single_files, single_file_uuids = single_file_uuids, single_bundle_uuids = single_bundle_uuids, \
+                                             paired_filenames=paired_files, paired_file_uuids = paired_file_uuids, paired_bundle_uuids = paired_bundle_uuids, \
+                                             tar_filenames=tar_files, tar_file_uuids = tar_file_uuids, tar_bundle_uuids = tar_bundle_uuids, \
+                                             tmp_dir=self.tmp_dir, submitter_sample_id = submitter_sample_id, meta_data_json = meta_data_json, \
+                                             touch_file_path = touch_file_path, test_mode=self.test_mode, test_mode_json_path=self.test_mode_json_path))
+        else:
+            listOfJobs.append(DockstoreTask(redwood_host=self.redwood_host, redwood_token=self.redwood_token, \
+                                             image_descriptor=self.image_descriptor, dockstore_tool_running_dockstore_tool=self.dockstore_tool_running_dockstore_tool, \
+                                             parent_uuids = parent_uuids.keys(), \
+                                             single_filenames=single_files, single_file_uuids = single_file_uuids, single_bundle_uuids = single_bundle_uuids, \
+                                             paired_filenames=paired_files, paired_file_uuids = paired_file_uuids, paired_bundle_uuids = paired_bundle_uuids, \
+                                             tar_filenames=tar_files, tar_file_uuids = tar_file_uuids, tar_bundle_uuids = tar_bundle_uuids, \
+                                             tmp_dir=self.tmp_dir, submitter_sample_id = submitter_sample_id, meta_data_json = meta_data_json, \
+                                             touch_file_path = touch_file_path, test_mode=self.test_mode, test_mode_json_path=self.test_mode_json_path))
         print("total of {} jobs; max jobs allowed is {}\n\n".format(str(len(listOfJobs)), self.max_jobs))
 
         # these jobs are yielded to
