@@ -533,6 +533,7 @@ class ProtectCoordinator(luigi.Task):
                                              tmp_dir=self.tmp_dir, submitter_sample_id = submitter_sample_id, meta_data_json = meta_data_json, \
                                              touch_file_path = touch_file_path, test_mode=self.test_mode, test_mode_json_path=self.test_mode_json_path))
         else:
+            listOfJobs = []
             listOfJobs.append(DockstoreTask(redwood_host=self.redwood_host, redwood_token=self.redwood_token, \
                                              image_descriptor=self.image_descriptor, dockstore_tool_running_dockstore_tool=self.dockstore_tool_running_dockstore_tool, \
                                              parent_uuids = parent_uuids.keys(), \
