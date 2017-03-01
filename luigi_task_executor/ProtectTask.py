@@ -541,7 +541,7 @@ class ProtectCoordinator(luigi.Task):
                                              paired_filenames="", paired_file_uuids = "", paired_bundle_uuids = "", \
                                              tar_filenames="", tar_file_uuids = "", tar_bundle_uuids = "", \
                                              tmp_dir=self.tmp_dir, submitter_sample_id = "", meta_data_json = "", \
-                                             touch_file_path = touch_file_path, test_mode=self.test_mode, test_mode_json_path=self.test_mode_json_path))
+                                             touch_file_path = "", test_mode=self.test_mode, test_mode_json_path=self.test_mode_json_path))
         print("total of {} jobs; max jobs allowed is {}\n\n".format(str(len(listOfJobs)), self.max_jobs))
 
         # these jobs are yielded to
