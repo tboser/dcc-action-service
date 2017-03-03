@@ -30,7 +30,13 @@ class ConsonanceTask(luigi.Task):
     redwood_host = luigi.Parameter("storage.ucsc-cgl.org")
     redwood_token = luigi.Parameter("must_be_defined")
     dockstore_tool_running_dockstore_tool = luigi.Parameter(default="quay.io/ucsc_cgl/dockstore-tool-runner:1.0.8")
-    target_tool = luigi.Parameter(default="quay.io/ucsc_cgl/rnaseq-cgl-pipeline:3.1.3")
+
+    workflow_version = luigi.Parameter(default="must be defined")
+
+#    target_tool = luigi.Parameter(default="quay.io/ucsc_cgl/rnaseq-cgl-pipeline:3.2.0-1")
+    target_tool_prefix = luigi.Parameter(default="quay.io/ucsc_cgl/rnaseq-cgl-pipeline")
+    
+
     target_tool_url = luigi.Parameter(default="https://dockstore.org/containers/quay.io/ucsc_cgl/rnaseq-cgl-pipeline")
     workflow_type = luigi.Parameter(default="rna_seq_quantification")
     image_descriptor = luigi.Parameter("must be defined")
@@ -282,6 +288,8 @@ class ConsonanceTask(luigi.Task):
         p = self.save_dockstore_json().open('w')
         p_local = self.save_dockstore_json_local().open('w')
 
+        target_tool= self.target_tool_prefix + ":" + self.workflow_version
+
         dockstore_json_str = '''{
             "json_encoded": "%s",
             "docker_uri": "%s",
@@ -297,7 +305,7 @@ class ConsonanceTask(luigi.Task):
             "vm_instance_cores": 36,
             "vm_instance_mem_gb": 60,
             "output_metadata_json": "/tmp/final_metadata.json"
-        }''' % (base64_json_str, self.target_tool, self.target_tool_url, self.redwood_token, self.redwood_host, parent_uuids, self.workflow_type, self.tmp_dir )
+        }''' % (base64_json_str, target_tool, self.target_tool_url, self.redwood_token, self.redwood_host, parent_uuids, self.workflow_type, self.tmp_dir )
 
         print(dockstore_json_str, file=p)
         p.close()
@@ -412,8 +420,8 @@ class RNASeqCoordinator(luigi.Task):
     bundle_uuid_filename_to_file_uuid = {}
     process_sample_uuid = luigi.Parameter(default = "")
 
-#    touch_file_path_prefix = os.path.join("s3:/", "cgl-core-analysis-run-touch-files", "consonance-jobs", "RNASeq_3_1_x_Coordinator", "3_1_3")
-    touch_file_path_prefix = "cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/3_1_3"
+    workflow_version = luigi.Parameter(default="3.2.0-1")
+ 
 
     #Consonance will not be called in test mode
     test_mode = luigi.BooleanParameter(default = False)
@@ -421,6 +429,7 @@ class RNASeqCoordinator(luigi.Task):
 
     def requires(self):
         print("\n\n\n\n** COORDINATOR REQUIRES **")
+
         # now query the metadata service so I have the mapping of bundle_uuid & file names -> file_uuid
         print(str("https://"+self.redwood_host+":8444/entities?page=0"))
 
@@ -462,8 +471,18 @@ class RNASeqCoordinator(luigi.Task):
             if hit["_source"]["program"] == "PROTECT_NBL":
                 continue
 
-            if hit["_source"]["project"] == "QC":
+            if hit["_source"]["project"] != "QC":
                 continue
+
+#            if "D_rnaseqTest_hcb" not in hit["_source"]["submitter_donor_id"]:
+#                continue
+
+
+            if(hit["_source"]["center_name"] == 'EGAD00001002680' or 
+               hit["_source"]["center_name"] == 'EGAD00001000356' or
+               hit["_source"]["center_name"] == 'EGAD00001001666' or
+               hit["_source"]["center_name"] == 'phs0000709.v1.p1'):
+                 continue
 
 
             for specimen in hit["_source"]["specimen"]:
@@ -519,13 +538,13 @@ class RNASeqCoordinator(luigi.Task):
                               ((hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"] == True and \
                                    (sample["sample_uuid"] in hit["_source"]["missing_items"]["normal_rna_seq_cgl_workflow_3_0_x"] or \
                                    (sample["sample_uuid"] in hit["_source"]["present_items"]["normal_rna_seq_cgl_workflow_3_0_x"] and 
-                                                                                         (rna_seq_outputs_len == 0 or rna_seq_workflow_version != "3.1.3"))) and \
+                                                                                         (rna_seq_outputs_len == 0 or rna_seq_workflow_version != self.workflow_version))) and \
                                    re.match("^Normal - ", specimen["submitter_specimen_type"]) and \
                                    re.match("^RNA-Seq$", specimen["submitter_experimental_design"])) or \
                                (hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"] == True and \
                                    (sample["sample_uuid"] in hit["_source"]["missing_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] or \
                                    (sample["sample_uuid"] in hit["_source"]["present_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] and 
-                                                                                         (rna_seq_outputs_len == 0 or rna_seq_workflow_version != "3.1.3"))) and \
+                                                                                         (rna_seq_outputs_len == 0 or rna_seq_workflow_version != self.workflow_version))) and \
                                    re.match("^Primary tumour - |^Recurrent tumour - |^Metastatic tumour - |^Cell line -", specimen["submitter_specimen_type"]) and \
                                    re.match("^RNA-Seq$", specimen["submitter_experimental_design"])))) ):
 
@@ -534,8 +553,10 @@ class RNASeqCoordinator(luigi.Task):
 #                                                                    + "_" + hit["_source"]["project"] + "_" + hit["_source"]["submitter_donor_id"] \
 #                                                                    + "_" + specimen["submitter_specimen_id"])
 
-
-                            touch_file_path = self.touch_file_path_prefix+"/"+hit["_source"]["center_name"]+"_"+hit["_source"]["program"] \
+#                           touch_file_path_prefix = os.path.join("s3:/", "cgl-core-analysis-run-touch-files", "consonance-jobs", "RNASeq_3_1_x_Coordinator", "3_1_3")
+                            workflow_version_dir = self.workflow_version.replace('.', '_') 
+                            touch_file_path_prefix = "cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_Coordinator/" + workflow_version_dir
+                            touch_file_path = touch_file_path_prefix+"/"+hit["_source"]["center_name"]+"_"+hit["_source"]["program"] \
                                                                     +"_"+hit["_source"]["project"]+"_"+hit["_source"]["submitter_donor_id"] \
                                                                     +"_"+specimen["submitter_specimen_id"]
                             submitter_sample_id = sample["submitter_sample_id"]
@@ -560,7 +581,7 @@ class RNASeqCoordinator(luigi.Task):
                             meta_data["sample_uuid"] = sample["sample_uuid"]
                             meta_data["analysis_type"] = "rna_seq_quantification"
                             meta_data["workflow_name"] = "quay.io/ucsc_cgl/rnaseq-cgl-pipeline"
-                            meta_data["workflow_version"] = "3.1.3"
+                            meta_data["workflow_version"] = self.workflow_version
 
                             meta_data_json = json.dumps(meta_data)
                             print("meta data:")
@@ -665,7 +686,7 @@ class RNASeqCoordinator(luigi.Task):
                                          paired_filenames=paired_files, paired_file_uuids = paired_file_uuids, paired_bundle_uuids = paired_bundle_uuids, \
                                          tar_filenames=tar_files, tar_file_uuids = tar_file_uuids, tar_bundle_uuids = tar_bundle_uuids, \
                                          tmp_dir=self.tmp_dir, submitter_sample_id = submitter_sample_id, meta_data_json = meta_data_json, \
-                                         touch_file_path = touch_file_path, test_mode=self.test_mode))
+                                         touch_file_path = touch_file_path, workflow_version = self.workflow_version, test_mode=self.test_mode))
         print("total of {} jobs; max jobs allowed is {}\n\n".format(str(len(listOfJobs)), self.max_jobs))
 
         # these jobs are yielded to
@@ -687,7 +708,8 @@ class RNASeqCoordinator(luigi.Task):
         ts = time.time()
         ts_str = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d_%H:%M:%S')
         #return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/RNASeqTask-%s.txt' % (self.tmp_dir, ts_str))
-        return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/RNASeqTask-%s.txt' % (ts_str))
+        workflow_version_dir = self.workflow_version.replace('.', '_') 
+        return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_Coordinator/{}/RNASeqTask-{}.txt'.format(workflow_version_dir, ts_str))
 
     def fileToUUID(self, input, bundle_uuid):
         return self.bundle_uuid_filename_to_file_uuid[bundle_uuid+"_"+input]
