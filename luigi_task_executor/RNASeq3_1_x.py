@@ -420,7 +420,7 @@ class RNASeqCoordinator(luigi.Task):
     bundle_uuid_filename_to_file_uuid = {}
     process_sample_uuid = luigi.Parameter(default = "")
 
-    workflow_version = luigi.Parameter(default="3.2.0-1")
+    workflow_version = luigi.Parameter(default="3.2.1-1")
  
 
     #Consonance will not be called in test mode
