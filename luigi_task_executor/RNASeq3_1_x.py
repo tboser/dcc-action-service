@@ -79,17 +79,39 @@ class ConsonanceTask(luigi.Task):
 
     def run(self):
         print("\n\n\n** TASK RUN **")
-        #get a unique id for this task based on the some inputs
-        #this id will not change if the inputs are the same
-#        task_uuid = self.get_task_uuid()
 
 #        print "** MAKE TEMP DIR **"
-        # create a unique temp dir
-        cmd = '''mkdir -p /datastore/%s''' % (self.touch_file_path)
+       
+        # create a temp dir on the local disk to hold the
+        # parameterized JSON file so that consonance can read it.
+        # Consonance cannot read a file on S3 so we have to have
+        # a local copy of the JSON
+        local_json_dir = "/datastore/" + self.touch_file_path
+        cmd = ["mkdir", "-p", local_json_dir ]
         print(cmd)
-        result = subprocess.call(cmd, shell=True)
-        if result != 0:
-            print("PROBLEMS MAKING DIR!!")
+        try:
+            subprocess.check_call(cmd)
+        except subprocess.CalledProcessError as e:
+            #If we get here then the called command return code was non zero
+            print("\nERROR!!! MAKING LOCAL JSON DIR : " + cmd + " FAILED !!!", file=sys.stderr)
+            print("\nReturn code:" + str(e.returncode), file=sys.stderr)
+            return_code = e.returncode
+            sys.exit(return_code)
+        except Exception as e:
+            print("\nERROR!!! MAKING LOCAL JSON DIR : " + cmd + " THREW AN EXCEPTION !!!", file=sys.stderr)
+            print("\nException information:" + str(e), file=sys.stderr)
+            #if we get here the called command threw an exception other than just
+            #returning a non zero return code, so just set the return code to 1
+            return_code = 1
+            sys.exit(return_code)
+
+
+
+#        cmd = '''mkdir -p /datastore/%s''' % (self.touch_file_path)
+#        print(cmd)
+#        result = subprocess.call(cmd, shell=True)
+#        if result != 0:
+#            print("PROBLEMS MAKING LOCAL JSON DIR")
 
         #convert the meta data to a python data structure
         meta_data = json.loads(self.meta_data_json)
@@ -356,7 +378,7 @@ class ConsonanceTask(luigi.Task):
         #remove the local parameterized JSON file that
         #was created for the Consonance call
         #since the Consonance call is finished
-#        self.save_dockstore_json_local().remove()
+        self.save_dockstore_json_local().remove()
 
         #convert the meta data to a string and
         #save the donor metadata for the sample being processed to the touch
@@ -466,23 +488,23 @@ class RNASeqCoordinator(luigi.Task):
             
 #            if hit["_source"]["program"] != "SU2C" or hit["_source"]["project"] != "WCDT":
 #                continue
-#            if hit["_source"]["program"] != "Treehouse":
+            if hit["_source"]["program"] != "Treehouse":
+                continue
+#            if hit["_source"]["program"] == "PROTECT_NBL":
 #                continue
-            if hit["_source"]["program"] == "PROTECT_NBL":
-                continue
 
-            if hit["_source"]["project"] != "QC":
-                continue
+#            if hit["_source"]["project"] != "QC":
+#                continue
 
 #            if "D_rnaseqTest_hcb" not in hit["_source"]["submitter_donor_id"]:
 #                continue
 
 
-            if(hit["_source"]["center_name"] == 'EGAD00001002680' or 
-               hit["_source"]["center_name"] == 'EGAD00001000356' or
-               hit["_source"]["center_name"] == 'EGAD00001001666' or
-               hit["_source"]["center_name"] == 'phs0000709.v1.p1'):
-                 continue
+#            if(hit["_source"]["center_name"] == 'EGAD00001002680' or 
+#               hit["_source"]["center_name"] == 'EGAD00001000356' or
+#               hit["_source"]["center_name"] == 'EGAD00001001666' or
+#               hit["_source"]["center_name"] == 'phs0000709.v1.p1'):
+#                 continue
 
 
             for specimen in hit["_source"]["specimen"]:
@@ -522,15 +544,17 @@ class RNASeqCoordinator(luigi.Task):
                                     rna_seq_workflow_version = filter_analysis["workflow_version"] 
                                     print("len of rna_seq outputs is:"+str(rna_seq_outputs_len))
 
-                        if ( (analysis["analysis_type"] == "sequence_upload" and \
-                              ((hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"] == False and \
-                                   sample["sample_uuid"] in hit["_source"]["missing_items"]["normal_rna_seq_cgl_workflow_3_0_x"] and \
-                                   re.match("^Normal - ", specimen["submitter_specimen_type"]) and \
-                                   re.match("^RNA-Seq$", specimen["submitter_experimental_design"])) or \
-                               (hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"] == False and \
-                                   sample["sample_uuid"] in hit["_source"]["missing_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] and \
-                                   re.match("^Primary tumour - |^Recurrent tumour - |^Metastatic tumour - |^Cell line -", specimen["submitter_specimen_type"]) and \
-                                   re.match("^RNA-Seq$", specimen["submitter_experimental_design"])))) or \
+                        if ( (analysis["analysis_type"] == "sequence_upload" and 
+                              ((hit["_source"]["flags"]["normal_rna_seq_cgl_workflow_3_0_x"] == False and 
+                                   (rna_seq_outputs_len == 0 or (rna_seq_workflow_version != self.workflow_version)) and 
+                                   sample["sample_uuid"] in hit["_source"]["missing_items"]["normal_rna_seq_cgl_workflow_3_0_x"] and 
+                                   re.match("^Normal - ", specimen["submitter_specimen_type"]) and 
+                                   re.match("^RNA-Seq$", specimen["submitter_experimental_design"])) or 
+                               (hit["_source"]["flags"]["tumor_rna_seq_cgl_workflow_3_0_x"] == False and 
+                                   (rna_seq_outputs_len == 0 or rna_seq_workflow_version != self.workflow_version) and 
+                                   sample["sample_uuid"] in hit["_source"]["missing_items"]["tumor_rna_seq_cgl_workflow_3_0_x"] and 
+                                   re.match("^Primary tumour - |^Recurrent tumour - |^Metastatic tumour - |^Cell line -", specimen["submitter_specimen_type"]) and 
+                                   re.match("^RNA-Seq$", specimen["submitter_experimental_design"])))) or 
 
                              #if the workload has already been run but we have no
                              #output from the workload run it again
@@ -559,6 +583,10 @@ class RNASeqCoordinator(luigi.Task):
                             touch_file_path = touch_file_path_prefix+"/"+hit["_source"]["center_name"]+"_"+hit["_source"]["program"] \
                                                                     +"_"+hit["_source"]["project"]+"_"+hit["_source"]["submitter_donor_id"] \
                                                                     +"_"+specimen["submitter_specimen_id"]
+                            #should we remove all white space from the path in the case where i.e. the program name is two works separated by blanks?
+                            # remove all whitespace from touch file path
+                            #touch_file_path = ''.join(touch_file_path.split())
+
                             submitter_sample_id = sample["submitter_sample_id"]
 
                             #This metadata will be passed to the Consonance Task and some
