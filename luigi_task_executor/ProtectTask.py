@@ -112,55 +112,56 @@ class DockstoreTask(luigi.Task):
         if result != 0:
             print("Unable to access work mount!!")
 
-        #convert the meta data to a python data structure
-        meta_data = json.loads(self.meta_data_json)
+        if self.test_mode == False: #don't deal with touch files for test run.
+            #convert the meta data to a python data structure
+            meta_data = json.loads(self.meta_data_json)
 
-        print("** MAKE JSON FOR WORKER **")
-        # create a json for RNA-Seq which will be executed by the dockstore-tool-running-dockstore-tool and passed as base64encoded
-        # will need to encode the JSON above in this: https://docs.python.org/2/library/base64.html
-        # see http://luigi.readthedocs.io/en/stable/api/luigi.parameter.html?highlight=luigi.parameter
-        # TODO: this is tied to the requirements of the tool being targeted
+            print("** MAKE JSON FOR WORKER **")
+            # create a json for RNA-Seq which will be executed by the dockstore-tool-running-dockstore-tool and passed as base64encoded
+            # will need to encode the JSON above in this: https://docs.python.org/2/library/base64.html
+            # see http://luigi.readthedocs.io/en/stable/api/luigi.parameter.html?highlight=luigi.parameter
+            # TODO: this is tied to the requirements of the tool being targeted
 
-        json_str = json.dumps(self.json_dict)
-        print("THE JSON: "+json_str)
-        # now make base64 encoded version
-        base64_json_str = base64.urlsafe_b64encode(json_str)
-        print("** MAKE JSON FOR DOCKSTORE TOOL WRAPPER **")
+            json_str = json.dumps(self.json_dict)
+            print("THE JSON: "+json_str)
+            # now make base64 encoded version
+            base64_json_str = base64.urlsafe_b64encode(json_str)
+            print("** MAKE JSON FOR DOCKSTORE TOOL WRAPPER **")
 
-        # create a json for dockstoreRunningDockstoreTool, embed the RNA-Seq JSON as a param
-# below used to be a list of parent UUIDs; which is correct????
-#            "parent_uuids": "[%s]",
-        parent_uuids = ','.join(map("{0}".format, self.parent_uuids))
+            # create a json for dockstoreRunningDockstoreTool, embed the RNA-Seq JSON as a param
+    # below used to be a list of parent UUIDs; which is correct????
+    #            "parent_uuids": "[%s]",
+            parent_uuids = ','.join(map("{0}".format, self.parent_uuids))
 
-        print("parent uuids:%s" % parent_uuids)
+            print("parent uuids:%s" % parent_uuids)
 
-        p = self.save_dockstore_json().open('w')
-        p_local = self.save_dockstore_json_local().open('w')
+            p = self.save_dockstore_json().open('w')
+            p_local = self.save_dockstore_json_local().open('w')
 
-        dockstore_json_str = '''{
-            "json_encoded": "%s",
-            "docker_uri": "%s",
-            "dockstore_url": "%s",
-            "redwood_token": "%s",
-            "redwood_host": "%s",
-            "parent_uuids": "%s",
-            "workflow_type": "%s",
-            "tmpdir": "%s",
-            "vm_instance_type": "c4.8xlarge",
-            "vm_region": "us-west-2",
-            "vm_location": "aws",
-            "vm_instance_cores": 36,
-            "vm_instance_mem_gb": 60,
-            "output_metadata_json": "/tmp/final_metadata.json"
-        }''' % (base64_json_str, self.target_tool, self.target_tool_url, self.redwood_token, self.redwood_host, parent_uuids, self.workflow_type, self.tmp_dir )
+            dockstore_json_str = '''{
+                "json_encoded": "%s",
+                "docker_uri": "%s",
+                "dockstore_url": "%s",
+                "redwood_token": "%s",
+                "redwood_host": "%s",
+                "parent_uuids": "%s",
+                "workflow_type": "%s",
+                "tmpdir": "%s",
+                "vm_instance_type": "c4.8xlarge",
+                "vm_region": "us-west-2",
+                "vm_location": "aws",
+                "vm_instance_cores": 36,
+                "vm_instance_mem_gb": 60,
+                "output_metadata_json": "/tmp/final_metadata.json"
+            }''' % (base64_json_str, self.target_tool, self.target_tool_url, self.redwood_token, self.redwood_host, parent_uuids, self.workflow_type, self.tmp_dir )
 
-        print(dockstore_json_str, file=p)
-        p.close()
-    
-        # write the parameterized JSON for input to Consonance
-        # to a local file since Consonance cannot read files on s3
-        print(dockstore_json_str, file=p_local)
-        p_local.close()
+            print(dockstore_json_str, file=p)
+            p.close()
+        
+            # write the parameterized JSON for input to Consonance
+            # to a local file since Consonance cannot read files on s3
+            print(dockstore_json_str, file=p_local)
+            p_local.close()
 
         # execute consonance run, parse the job UUID
 
