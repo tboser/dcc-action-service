@@ -503,12 +503,7 @@ class ProtectCoordinator(luigi.Task):
             print("=========SUBMITTING A TEST JOB AS DOCKSTORE TASK========")
             listOfJobs.append(DockstoreTask(redwood_host=self.redwood_host, redwood_token=self.redwood_token, \
                 image_descriptor=self.image_descriptor, dockstore_tool_running_dockstore_tool=self.dockstore_tool_running_dockstore_tool, \
-                parent_uuids ="", \
-                single_filenames="", single_file_uuids="", single_bundle_uuids ="", \
-                paired_filenames="", paired_file_uuids ="", paired_bundle_uuids ="", \
-                tar_filenames="", tar_file_uuids ="", tar_bundle_uuids = "", \
-                tmp_dir="", submitter_sample_id ="", meta_data_json ="", \
-                touch_file_path ="", test_mode=True, test_mode_json_path=self.test_mode_json_path))
+                touch_file_path ="thomas/test/action-service-protect", test_mode=True, test_mode_json_path=self.test_mode_json_path))
             
         print("total of {} jobs; max jobs allowed is {}\n\n".format(str(len(listOfJobs)), self.max_jobs))
 
