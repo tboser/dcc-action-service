@@ -41,13 +41,13 @@ REDWOOD_ACCESS_TOKEN=$(<"${LUIGI_RUNS_PATH}"/redwood_access_token.txt)
 #so we can monitor job status
 #once we do this we don't use the --local-scheduler switch in the 
 #Luigi command line
-echo "${VIRTUAL_ENV_PATH}/luigid --background" >> ${LUIGI_RUNS_PATH}/cron_decider_log.txt
+echo "Starting Luigi daemon in the background" >> ${LUIGI_RUNS_PATH}/cron_decider_log.txt
 sudo "${VIRTUAL_ENV_PATH}"/luigid --background
 
-echo "PYTHONPATH=${DECIDER_SOURCE_PATH} luigi --module RNASeq3_1_x RNASeqCoordinator --redwood-client-path /home/ubuntu/ucsc-storage-client/ --redwood-host storage.ucsc-cgl.org --redwood-token <token> --es-index-host 172.31.25.227 --image-descriptor ~/gitroot/BD2KGenomics/dcc-dockstore-tool-runner/Dockstore.cwl --tmp-dir /datastore --max-jobs 50 > cron_log_RNA-Seq_decider_stdout.txt 2> ${LUIGI_RUNS_PATH}/cron_log_RNA-Seq_decider_stderr.txt" >> ${LUIGI_RUNS_PATH}/cron_decider_log.txt
+echo "Running Luigi RNA-Seq decider" >> ${LUIGI_RUNS_PATH}/cron_decider_log.txt
 
 # run the decider
-PYTHONPATH="${DECIDER_SOURCE_PATH}" luigi --module RNASeq3_1_x RNASeqCoordinator --redwood-client-path /home/ubuntu/ucsc-storage-client/ --redwood-host storage.ucsc-cgl.org --redwood-token $REDWOOD_ACCESS_TOKEN --es-index-host 172.31.25.227 --image-descriptor ~/gitroot/BD2KGenomics/dcc-dockstore-tool-runner/Dockstore.cwl --tmp-dir /datastore --max-jobs 50 > cron_log_RNA-Seq_decider_stdout.txt 2> "${LUIGI_RUNS_PATH}"/cron_log_RNA-Seq_decider_stderr.txt
+PYTHONPATH="${DECIDER_SOURCE_PATH}" luigi --module RNASeq3_1_x RNASeqCoordinator --redwood-client-path /home/ubuntu/ucsc-storage-client/ --redwood-host storage.ucsc-cgl.org --redwood-token $REDWOOD_ACCESS_TOKEN --es-index-host 172.31.25.227 --image-descriptor ~/gitroot/BD2KGenomics/dcc-dockstore-tool-runner/Dockstore.cwl --tmp-dir /datastore --max-jobs 500 > cron_log_RNA-Seq_decider_stdout.txt 2> "${LUIGI_RUNS_PATH}"/cron_log_RNA-Seq_decider_stderr.txt
 
 
 ##PYTHONPATH=${DECIDER_SOURCE_PATH} luigi --module RNASeq3_1_x RNASeqCoordinator --redwood-client-path /home/ubuntu/ucsc-storage-client/ --redwood-host storage.ucsc-cgl.org --redwood-token $REDWOOD_ACCESS_TOKEN --es-index-host 172.31.25.227 --image-descriptor ~/gitroot/BD2KGenomics/dcc-dockstore-tool-runner/Dockstore.cwl --local-scheduler --tmp-dir /datastore --max-jobs 50 > cron_log_RNA-Seq_decider_stdout.txt 2> ${LUIGI_RUNS_PATH}/cron_log_RNA-Seq_decider_stderr.txt

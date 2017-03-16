@@ -488,10 +488,10 @@ class RNASeqCoordinator(luigi.Task):
             
 #            if hit["_source"]["program"] != "SU2C" or hit["_source"]["project"] != "WCDT":
 #                continue
-            if hit["_source"]["program"] != "Treehouse":
-                continue
-#            if hit["_source"]["program"] == "PROTECT_NBL":
+#            if hit["_source"]["program"] != "Treehouse":
 #                continue
+            if hit["_source"]["program"] == "PROTECT_NBL":
+                continue
 
 #            if hit["_source"]["project"] != "QC":
 #                continue
