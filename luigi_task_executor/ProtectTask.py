@@ -261,7 +261,7 @@ class DockstoreTask(luigi.Task):
         #task_uuid = self.get_task_uuid()
         #return luigi.LocalTarget('%s/consonance-jobs/RNASeq_3_1_x_Coordinator/fastq_gz/%s/finished.txt' % (self.tmp_dir, task_uuid))
         #return S3Target('s3://cgl-core-analysis-run-touch-files/consonance-jobs/RNASeq_3_1_x_Coordinator/%s/finished.txt' % ( task_uuid))
-        return S3Target('s3://%s/%s_finished.json' % (self.touch_file_path, self.submitter_sample_id ))
+        return None#S3Target('s3://%s/%s_finished.json' % (self.touch_file_path, self.submitter_sample_id ))
 
 class ProtectCoordinator(luigi.Task):
 
