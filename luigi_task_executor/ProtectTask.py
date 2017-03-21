@@ -317,7 +317,7 @@ class ProtectCoordinator(luigi.Task):
 
         listOfJobs = []
 
-        if not self.test_mode:
+        if not self.test_mode or not self.test_mode_json_path:
             res = es.search(index="analysis_index", body={"query" : {"bool" : {"should" : [{"term" : { "flags.normal_protect_workflow_2_3_x" : "false"}},{"term" : {"flags.tumor_protect_workflow_2_3_x" : "false" }}],"minimum_should_match" : 1 }}}, size=5000)
 
             print("Got %d Hits:" % res['hits']['total'])
