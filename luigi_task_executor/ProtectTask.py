@@ -504,7 +504,7 @@ class ProtectCoordinator(luigi.Task):
             print("=========SUBMITTING A TEST JOB AS DOCKSTORE TASK========")
             listOfJobs.append(DockstoreTask(redwood_host=self.redwood_host, redwood_token=self.redwood_token, \
                 image_descriptor=self.image_descriptor, dockstore_tool_running_dockstore_tool=self.dockstore_tool_running_dockstore_tool, \
-                touch_file_path ="thomas/test/action-service-protect", test_mode=True, test_mode_json_path=self.test_mode_json_path))
+                touch_file_path ="cgl-core-analysis-run-touch-files/consonance-jobs/Protect/1_0_1/thomas_protect_test", test_mode=True, test_mode_json_path=self.test_mode_json_path))
             
         print("total of {} jobs; max jobs allowed is {}\n\n".format(str(len(listOfJobs)), self.max_jobs))
 
