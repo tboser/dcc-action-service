@@ -218,10 +218,12 @@ class DockstoreTask(luigi.Task):
         #convert the meta data to a string and
         #save the donor metadata for the sample being processed to the touch
         # file directory
-        meta_data_json = json.dumps(meta_data)
-        m = self.save_metadata_json().open('w')
-        print(meta_data_json, file=m)
-        m.close()
+
+        ## removed until we start scheduling jobs using decider.
+        #meta_data_json = json.dumps(meta_data)
+        #m = self.save_metadata_json().open('w')
+        #print(meta_data_json, file=m)
+        #m.close()
 
             
 #        if result == 0:
